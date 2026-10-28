@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cronometro corsa</title>
+<meta name="theme-color" content="#0D1417">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#17252C;--ink2:#4E5F66;--ink3:#7C8B90;--paper:#F5F7F3;--card:#FFF;--rule:#DCE2DA;
+ --on:#A8630F;--on-bg:#FBF1E3;--off:#1F6B72;--off-bg:#E9F2F1;--lib:#7A3E6B;--lib-bg:#F6EDF4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:Archivo,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+ font-size:16px;line-height:1.45;font-feature-settings:"tnum" 1}
+.wrap{max-width:1180px;margin:0 auto;padding:0 18px}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.015em}
+p{margin:0 0 .6em}
+
+.bar{position:sticky;top:0;z-index:30;background:rgba(245,247,243,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+.barTop{display:flex;align-items:center;gap:10px;padding:9px 0 6px}
+.barTop .name{font-weight:700;font-size:.93rem;letter-spacing:-.02em}
+.tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:7px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{font:inherit;font-size:.87rem;white-space:nowrap;cursor:pointer;background:transparent;border:none;
+ border-bottom:2px solid transparent;color:var(--ink3);padding:5px 10px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--on);font-weight:600}
+button{font:inherit;font-size:.82rem;cursor:pointer;background:var(--card);color:var(--ink);border:1px solid var(--rule);
+ border-radius:3px;padding:6px 11px}
+button:hover{border-color:var(--ink)}
+button.primary{border-color:var(--ink)}
+button.primary:hover{background:var(--ink);color:var(--paper)}
+button.today{border-color:var(--on);color:var(--on);font-weight:600}
+button.today:hover{background:var(--on);color:#fff}
+button[aria-pressed="true"]{background:var(--on);border-color:var(--on);color:#fff}
+:focus-visible{outline:2px solid var(--on);outline-offset:2px}
+.menuWrap{position:relative;margin-left:auto}
+.menuPop{position:absolute;right:0;top:calc(100% + 6px);background:var(--card);border:1px solid var(--rule);
+ box-shadow:0 8px 24px rgba(23,37,44,.12);padding:6px;display:none;min-width:260px;z-index:40}
+.menuPop.open{display:block}
+.menuPop button{display:block;width:100%;text-align:left;border:none;background:transparent;padding:9px 10px;font-size:.86rem}
+.menuPop button:hover{background:var(--off-bg)}
+.menuPop .lab{font-size:.72rem;color:var(--ink3);padding:6px 10px 2px}
+.menuPop .sep{border-top:1px solid var(--rule);margin:5px 0}
+
+.hero{padding:28px 0 24px;border-bottom:1px solid var(--rule)}
+.hero h1{font-size:clamp(1.6rem,3.8vw,2.4rem);line-height:1.08;max-width:22ch}
+.hero .sub{color:var(--ink2);max-width:64ch;margin-top:12px;font-size:.94rem}
+.figs{display:flex;gap:22px;margin-top:18px;flex-wrap:wrap}
+.fig .v{font-size:1.4rem;font-weight:700;letter-spacing:-.03em}
+.fig .l{font-size:.74rem;color:var(--ink3);max-width:18ch;line-height:1.3}
+
+section{padding:24px 0 40px}
+.secHead{display:flex;align-items:baseline;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:9px;margin-bottom:16px;flex-wrap:wrap}
+.secHead h2{font-size:1.4rem}
+.secHead .hint{color:var(--ink3);font-size:.84rem;margin-left:auto}
+h3.sub2{margin:26px 0 12px;font-size:1.05rem}
+.wkpick{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.wkpick .lab{font-size:.78rem;color:var(--ink3);margin-right:4px}
+.wkpick .sp{flex:1}
+
+.week,.mweek{margin-bottom:30px}
+.weekHead{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+.weekHead h3{font-size:1.05rem}
+.weekHead .rng{color:var(--ink3);font-size:.85rem}
+.weekHead .tag{font-size:.72rem;color:var(--off);border:1px solid #CBDFDD;background:var(--off-bg);padding:2px 7px;border-radius:2px}
+.wnote{color:var(--ink2);font-size:.88rem;max-width:84ch;margin-bottom:12px}
+.sess{background:var(--card);border:1px solid var(--rule);padding:14px 18px;margin-bottom:10px;break-inside:avoid}
+.sessHead{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:10px}
+.sessHead .when{font-weight:600}
+.sessHead .what{color:var(--ink2)}
+.sessHead .opt{font-size:.68rem;font-weight:700;color:var(--off);background:var(--off-bg);padding:2px 7px;border-radius:2px}
+.sessHead .dur{margin-left:auto;font-size:.78rem;color:var(--ink3)}
+.blk{display:grid;grid-template-columns:190px minmax(0,1fr);gap:10px;padding:7px 0;border-top:1px solid var(--rule)}
+.blk .bn{font-size:.79rem;font-weight:600;color:var(--off)}
+.blk .bn em{display:block;font-weight:400;font-style:normal;color:var(--ink3);font-size:.74rem;margin-top:2px}
+.blk ul{margin:0;padding:0;list-style:none}
+.blk li{font-size:.86rem;margin-bottom:3px}
+.snota{font-size:.82rem;color:var(--on);background:var(--on-bg);padding:8px 11px;margin-top:9px}
+@media(max-width:640px){.blk{grid-template-columns:1fr;gap:2px}}
+
+.day{background:var(--card);border:1px solid var(--rule);border-bottom:none;break-inside:avoid}
+.day.on{border-left:3px solid var(--on)}
+.day.off{border-left:3px solid var(--off)}
+.day.libero{border-left:3px solid var(--lib)}
+.rail{display:flex;align-items:baseline;gap:8px;padding:8px 14px;border-bottom:1px solid var(--rule)}
+.rail .dow{font-weight:600;font-size:.95rem}
+.rail .dat{color:var(--ink3);font-size:.82rem}
+.pill{font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:2px;margin-left:auto}
+.day.on .pill{background:var(--on);color:#fff}
+.day.off .pill{background:var(--off-bg);color:var(--off)}
+.kbar{display:flex;gap:15px;flex-wrap:wrap;padding:7px 14px;border-bottom:1px solid var(--rule);
+ background:#FAFBF8;font-size:.74rem;color:var(--ink3)}
+.kbar b{color:var(--ink);font-weight:600}
+.kbar .neg b{color:var(--on)}
+details.rec+details.rec{border-top:1px solid var(--rule)}
+details.rec summary{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:11px 14px;cursor:pointer;list-style:none}
+details.rec summary::-webkit-details-marker{display:none}
+details.rec summary::after{content:"+";margin-left:auto;color:var(--ink3);font-size:1.05rem;padding-left:8px}
+details.rec[open] summary::after{content:"\2212"}
+details.rec[open] summary,details.rec summary:hover{background:#FAFBF8}
+.mh{font-size:.69rem;color:var(--ink3);font-weight:700;letter-spacing:.04em;min-width:66px}
+.rn{font-weight:600;font-size:.9rem;line-height:1.25;flex:1 1 180px}
+.rk{font-size:.72rem;color:var(--ink3);white-space:nowrap}
+.rbody{padding:2px 14px 15px}
+.rbody .ing{font-size:.82rem;margin-bottom:5px}
+.rbody .ing b,.rbody .aromi b{font-size:.69rem;color:var(--ink3);letter-spacing:.04em;margin-right:5px}
+.rbody .ing.free{color:var(--lib)}
+.rbody .aromi{font-size:.8rem;color:var(--ink2);margin-bottom:10px}
+.rbody .aromi em{color:var(--ink3);font-size:.75rem}
+ol.steps{padding-left:18px;margin:0 0 8px}
+ol.steps li{font-size:.84rem;color:var(--ink);margin-bottom:10px;line-height:1.4}
+ol.steps li div{font-size:.82rem;color:var(--ink2);margin-top:2px}
+.tm{font-size:.68rem;color:var(--on);background:var(--on-bg);padding:1px 6px;margin-left:7px;border-radius:2px}
+.tip{font-size:.77rem;color:var(--on);background:var(--on-bg);padding:8px 10px}
+.rbody .rhow{font-size:.83rem;color:var(--ink2)}
+.snack{font-size:.79rem;color:var(--ink2);margin-bottom:8px;line-height:1.3}
+.snack .sw{font-weight:600;color:var(--ink);display:block;font-size:.72rem}
+.snack .sk{color:var(--ink3);font-size:.71rem}
+.wsum{background:var(--card);border:1px solid var(--rule);padding:11px 14px;font-size:.84rem;color:var(--ink2)}
+.wsum b{color:var(--ink)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--rule);padding:16px 18px;break-inside:avoid}
+.card h3{font-size:1rem}
+.card h3 .sub{font-weight:400;color:var(--ink3);font-size:.85rem}
+.card .attr{font-size:.78rem;color:var(--ink3);margin:4px 0 10px}
+ol.seq{margin:0;padding-left:18px}
+ol.seq li{font-size:.86rem;margin-bottom:4px}
+button.link{border:none;background:transparent;color:var(--off);padding:8px 0 0;font-size:.83rem;text-decoration:underline}
+.note{background:var(--card);border:1px solid var(--rule);padding:16px 18px;break-inside:avoid}
+.note h4{font-size:.95rem;margin-bottom:8px}
+.note ul{margin:0;padding-left:18px}
+.note li{font-size:.85rem;margin-bottom:6px;color:var(--ink2)}
+.note li b{color:var(--ink)}
+.callout{border-left:3px solid var(--lib);background:var(--lib-bg);padding:14px 18px;margin:18px 0;font-size:.87rem}
+table.tbl{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--rule)}
+table.tbl th{font-size:.7rem;color:var(--ink3);font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);white-space:nowrap}
+table.tbl td{font-size:.84rem;padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+table.tbl tr:last-child td{border-bottom:none}
+.scroll{overflow-x:auto}
+
+.exGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.ex{background:var(--card);border:1px solid var(--rule);padding:16px 18px;break-inside:avoid}
+.exHead{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.exHead h4{font-size:1rem}
+.exHead .grp{font-size:.72rem;color:var(--off);background:var(--off-bg);border:1px solid #CBDFDD;padding:1px 7px;border-radius:2px;margin-left:auto}
+.ex .dose{font-size:.78rem;font-weight:600;color:var(--on);background:var(--on-bg);padding:5px 8px;margin:6px 0 8px}
+.ex .setup{font-size:.82rem;color:var(--ink2);margin-bottom:8px}
+.ex .err{font-size:.79rem;color:var(--on);background:var(--on-bg);padding:7px 9px;margin:8px 0 6px}
+.ex .why{font-size:.79rem;color:var(--ink3);border-top:1px dotted var(--rule);padding-top:6px}
+.ex .ord{display:none}
+body[data-sch] .ex{display:none}
+body[data-sch] .ex.hit{display:block}
+body[data-sch] .ex.hit .ord{display:inline-block;background:var(--on);color:#fff;font-size:.72rem;width:19px;height:19px;
+ line-height:19px;text-align:center;border-radius:2px;margin-right:7px;vertical-align:2px}
+.schHead{background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--on);padding:12px 16px;margin-bottom:16px;display:none}
+body[data-sch] .schHead{display:block}
+.schHead h3{font-size:1rem;margin-bottom:3px}
+.schHead p{font-size:.83rem;color:var(--ink2);margin:0}
+
+.logGrid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:20px;align-items:start}
+@media(max-width:900px){.logGrid{grid-template-columns:1fr}}
+.form{background:var(--card);border:1px solid var(--rule);padding:16px 18px}
+.form h4{font-size:.95rem;margin-bottom:12px}
+.fRow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px}
+.fRow.one{grid-template-columns:1fr}
+label{display:block;font-size:.73rem;color:var(--ink3);margin-bottom:3px}
+input,select,textarea{font:inherit;font-size:.87rem;width:100%;padding:7px 9px;border:1px solid var(--rule);border-radius:3px;background:#fff;color:var(--ink)}
+textarea{resize:vertical;min-height:58px}
+.stats{display:flex;gap:22px;flex-wrap:wrap;background:var(--card);border:1px solid var(--rule);padding:13px 16px;margin-bottom:14px}
+.stats .v{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}
+.stats .l{font-size:.72rem;color:var(--ink3)}
+.dl{color:var(--ink3);cursor:pointer;border:none;background:transparent;padding:2px 6px}
+.dl:hover{color:var(--on)}
+.warn{font-size:.8rem;color:var(--on);background:var(--on-bg);padding:9px 12px;margin-bottom:14px}
+footer{padding:26px 0 60px;color:var(--ink3);font-size:.77rem;border-top:1px solid var(--rule)}
+
+/* oggi */
+.sess.oggi{border-left:3px solid var(--on);box-shadow:0 0 0 1px var(--on)}
+.sess.oggi .when::after{content:"oggi";font-size:.62rem;font-weight:700;color:#fff;background:var(--on);
+ padding:2px 6px;border-radius:2px;margin-left:8px;vertical-align:2px;letter-spacing:.03em}
+.sess.passata{opacity:.5}
+.sess.passata .when::after{content:"fatta";font-size:.62rem;font-weight:600;color:var(--off);background:var(--off-bg);
+ padding:2px 6px;border-radius:2px;margin-left:8px;vertical-align:2px}
+.day.oggi{box-shadow:0 0 0 2px var(--on)}
+.day.oggi .rail .dow::after{content:"oggi";font-size:.62rem;font-weight:700;color:#fff;background:var(--on);
+ padding:2px 6px;border-radius:2px;margin-left:8px;vertical-align:2px;letter-spacing:.03em}
+.week.corrente>.weekHead h3::after,.mweek.corrente>.weekHead h3::after{content:"in corso";font-size:.64rem;font-weight:600;
+ color:var(--on);background:var(--on-bg);padding:2px 7px;border-radius:2px;margin-left:9px;vertical-align:2px}
+
+/* stampa */
+#print-allen,#print-dieta{display:none;background:#fff}
+.prevBar{display:none;position:sticky;top:0;z-index:50;background:var(--ink);color:#fff;padding:10px 0;margin-bottom:14px}
+.prevBar .wrap{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.prevBar .t{font-size:.88rem;font-weight:600}
+.prevBar .h{font-size:.76rem;opacity:.75;max-width:48ch}
+.prevBar .btns{margin-left:auto;display:flex;gap:8px}
+.prevBar button{background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
+.prevBar button:hover{background:#fff;color:var(--ink)}
+.prevScroll{overflow-x:auto}
+body[data-prev] .bar,body[data-prev] #hero,body[data-prev] .pane,body[data-prev] footer{display:none !important}
+body[data-prev] .prevBar{display:block}
+body[data-prev="allen"] #print-allen{display:block}
+body[data-prev="dieta"] #print-dieta{display:block}
+#print-dieta .gw{display:none}
+body[data-prev="dieta"][data-mw="a"] #print-dieta .gw[data-m="a"],
+body[data-prev="dieta"][data-mw="b"] #print-dieta .gw[data-m="b"]{display:block}
+body[data-prev="ricette"] #menu,body[data-prev="esercizi"] #esercizi,body[data-prev="log"] #registro{display:block !important}
+body[data-prev="ricette"] .wkpick,body[data-prev="log"] .form,body[data-prev="log"] .backup{display:none !important}
+.pgHead{display:flex;align-items:baseline;gap:10px;border-bottom:1.5pt solid #17252C;padding-bottom:4px;margin-bottom:7px}
+.pgHead h2{font-size:13pt}
+.pgHead span{font-size:8pt;color:#4E5F66}
+.pgHead .r{margin-left:auto;font-size:8pt;color:#4E5F66}
+table.tp{width:100%;border-collapse:collapse;margin-bottom:6px}
+table.tp th,table.tp td{border:.5pt solid #C8CDC5;padding:3px 5px;font-size:7.3pt;vertical-align:top;text-align:left}
+table.tp th{background:#EFF2EC;font-weight:600;font-size:7.1pt}
+table.tp td.d{font-weight:600;width:62pt;background:#FAFBF8}
+.pgNote{font-size:7pt;color:#4E5F66;margin-top:4px}
+.pgNote b{color:#17252C}
+table.grid{width:100%;border-collapse:collapse;table-layout:fixed}
+table.grid th,table.grid td{border:.5pt solid #C8CDC5;padding:3px 4px;vertical-align:top;text-align:left}
+table.grid th.rh{width:52pt;background:#EFF2EC;font-size:6.8pt;font-weight:600}
+table.grid th span{display:block;font-size:8pt;font-weight:700}
+table.grid th i{display:block;font-size:6pt;font-style:normal;font-weight:700;letter-spacing:.04em}
+table.grid th.on i{color:#A8630F}
+table.grid th.off i{color:#1F6B72}
+table.grid td b{display:block;font-size:6.9pt;line-height:1.2;margin-bottom:1px}
+table.grid td b.lib{color:#7A3E6B}
+table.grid td span{display:block;font-size:6.3pt;color:#4E5F66;line-height:1.2}
+
+.pane{display:none}
+body[data-tab="allen"] #allenamento,body[data-tab="ex"] #esercizi,body[data-tab="menu"] #menu,
+body[data-tab="log"] #registro,body[data-tab="alt"] #alternative,
+body[data-tab="note"] #storico,body[data-tab="note"] #metodo{display:block}
+body[data-tab="allen"] #hero{display:block}
+#hero{display:none}
+#menu .mweek{display:none}
+body[data-mw="a"] #menu .mweek[data-m="a"],body[data-mw="b"] #menu .mweek[data-m="b"]{display:block}
+
+@page{size:A4 portrait;margin:10mm}
+@media print{
+ body{background:#fff;font-size:9pt}
+ .bar,.noprint,#hero,.pane,footer,.prevBar{display:none !important}
+ .wrap{max-width:none;padding:0}
+ section{padding:0}
+ .prevScroll{overflow:visible}
+ body[data-prev="allen"] #print-allen{display:block !important}
+ body[data-prev="dieta"] #print-dieta{display:block !important}
+ body[data-prev="ricette"] #menu{display:block !important}
+ body[data-prev="esercizi"] #esercizi{display:block !important}
+ body[data-prev="log"] #registro{display:block !important}
+ .sess.oggi,.day.oggi{box-shadow:none}
+ .sess.passata{opacity:1}
+}
+
+/* cronometro */
+body[data-tab="run"] #cronometro{display:block}
+.crGrid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;align-items:start}
+@media(max-width:900px){.crGrid{grid-template-columns:1fr}}
+.crRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.crRow select{flex:1 1 220px}
+.crPlan{border-top:1px solid var(--rule);margin-top:4px}
+.crSeg{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:.84rem;align-items:baseline}
+.crSeg .sn{font-weight:600}
+.crSeg .sv{color:var(--ink2);white-space:nowrap}
+.crSeg .st{font-size:.74rem;white-space:nowrap;padding:2px 7px;border-radius:2px;background:var(--off-bg);color:var(--off)}
+.crSeg.work .st{background:var(--on-bg);color:var(--on);font-weight:600}
+.crSeg.free .st{background:transparent;color:var(--ink3)}
+.crShift{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:.8rem;color:var(--ink2);flex-wrap:wrap}
+.crShift b{min-width:42px;text-align:center;font-size:.92rem;color:var(--ink)}
+.crFree{margin-top:4px}
+.crPaceSet{display:flex;align-items:center;gap:10px;margin:6px 0 12px}
+.crPaceSet .pv{font-size:2rem;font-weight:700;letter-spacing:-.03em;min-width:96px;text-align:center}
+.crPaceSet button{font-size:1rem;padding:8px 14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chk{display:flex;gap:9px;align-items:center;font-size:.86rem;color:var(--ink);margin:0 0 9px;cursor:pointer}
+.chk input{width:18px;height:18px;margin:0;accent-color:var(--on)}
+.gpsLine{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:.84rem}
+.gpsDot{width:10px;height:10px;border-radius:50%;background:#B8C2C0;flex:none}
+.gpsDot.ok{background:#2E9E62}.gpsDot.mid{background:#D99A2B}.gpsDot.bad{background:#C4472F}
+.crGo{width:100%;font-size:1.05rem;font-weight:700;padding:14px;background:var(--ink);color:var(--paper);border-color:var(--ink);margin-top:6px}
+.crGo:hover{background:#000}
+.crNote{font-size:.78rem;color:var(--ink2);margin-top:12px}
+.crNote li{margin-bottom:5px}
+.crNote ul{margin:0;padding-left:17px}
+.crSum{margin-top:22px}
+.crSum .stats{margin-bottom:12px}
+.crSum .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.crSum td.tg{color:var(--ink3);font-size:.76rem}
+.crSum td.ok{color:#2E7D52;font-weight:600}.crSum td.fast{color:var(--on);font-weight:600}.crSum td.slow{color:#2F6FA8;font-weight:600}
+.kmList{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.kmList span{font-size:.78rem;background:var(--card);border:1px solid var(--rule);padding:4px 8px}
+.kmList span b{color:var(--ink3);font-weight:600;margin-right:4px}
+
+#runScreen{display:none;position:fixed;inset:0;z-index:200;background:#0D1417;color:#EEF2EE;
+ padding:max(12px,env(safe-area-inset-top)) 16px max(14px,env(safe-area-inset-bottom));flex-direction:column;
+ font-feature-settings:"tnum" 1;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+body[data-run] #runScreen{display:flex}
+body[data-run]{overflow:hidden}
+.rsTop{display:flex;gap:10px;align-items:baseline;font-size:1rem}
+.rsTop #rsSeg{font-weight:700;font-size:1.15rem;letter-spacing:-.01em}
+.rsTop #rsIdx{color:#8FA3A3;font-size:.85rem}
+.rsGps{margin-left:auto;font-size:.75rem;padding:3px 8px;border-radius:2px;background:#25343A;color:#B9C7C5;white-space:nowrap}
+.rsGps.ok{background:#173A2A;color:#7FDCA8}.rsGps.mid{background:#3E3013;color:#F2C46B}.rsGps.bad{background:#47201A;color:#F59A86}
+.rsProg{height:4px;background:#22312F;margin:10px 0 4px}
+.rsProg i{display:block;height:100%;width:0;background:#EEF2EE}
+.rsBody{flex:1;display:flex;flex-direction:column;justify-content:space-evenly;min-height:0}
+.rsMainL{font-size:.78rem;color:#8FA3A3;margin-top:8px;text-transform:uppercase;letter-spacing:.08em}
+.rsMain{font-size:clamp(64px,min(26vw,19vh),170px);font-weight:700;letter-spacing:-.045em;line-height:.95}
+.rsPace{margin-top:10px;padding:12px 14px;border-radius:4px;background:#17242A;border:2px solid #24363D}
+.rsPace.ok{border-color:#2E9E62;background:#10291D}
+.rsPace.fast{border-color:#E39A2E;background:#33240C}
+.rsPace.slow{border-color:#4C93D6;background:#0F2234}
+.rsPaceV{font-size:clamp(52px,min(19vw,13vh),130px);font-weight:700;letter-spacing:-.04em;line-height:1}
+.rsPaceL{font-size:.8rem;color:#A7B7B5;margin-top:2px}
+.rsTarget{font-size:1rem;font-weight:600;margin-top:4px}
+.rsPace.ok .rsTarget{color:#7FDCA8}.rsPace.fast .rsTarget{color:#F2C46B}.rsPace.slow .rsTarget{color:#8CC2F2}
+.rsRow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.rsRow b{display:block;font-size:clamp(22px,7vw,34px);font-weight:700;letter-spacing:-.03em}
+.rsRow span{font-size:.72rem;color:#8FA3A3}
+.rsNext{font-size:.85rem;color:#A7B7B5;margin-top:10px;min-height:1.2em}
+.rsWarn{font-size:.78rem;color:#F2C46B;margin-top:6px;min-height:1em}
+.rsBtns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:auto;padding-top:10px}
+.rsBtns button{background:#1C2A2F;color:#EEF2EE;border:1px solid #33464C;font-size:.95rem;font-weight:600;padding:16px 4px;border-radius:4px}
+.rsBtns button:hover{border-color:#EEF2EE}
+.rsBtns #rsStop{background:#4A1E17;border-color:#7A3326}
+.rsBtns #rsStop.armed{background:#C4472F;border-color:#C4472F}
+.rsBtns #rsPause.paused{background:#EEF2EE;color:#0D1417}
+#rsLockLayer{display:none;position:absolute;inset:0;background:rgba(6,10,12,.86);align-items:center;justify-content:center;text-align:center;font-size:1.2rem;font-weight:700;touch-action:none}
+#rsLockLayer span{font-size:.85rem;font-weight:400;color:#A7B7B5}
+#rsLockLayer.on{display:flex}
+.rsHold{width:220px;height:6px;background:#22312F;margin:16px auto 0}
+.rsHold i{display:block;height:100%;width:0;background:#EEF2EE}
+body[data-run] .rsPaused .rsMain{opacity:.45}
+@media print{#runScreen{display:none !important}}
+
+.top{position:sticky;top:0;z-index:30;background:rgba(245,247,243,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+.top .wrap{display:flex;align-items:center;gap:10px;padding:12px 18px}
+.top .name{font-weight:700;letter-spacing:-.02em}
+.top .sub{margin-left:auto;font-size:.76rem;color:var(--ink3)}
+body[data-tab="run"] #cronometro{display:block}
+</style>
+</head>
+<body data-tab="run">
+<div class="top"><div class="wrap"><span class="name">Cronometro corsa</span><span class="sub">ritmo guidato dal GPS</span></div></div>
+<main class="wrap">
+ <section id="cronometro" class="pane noprint">
+  <div class="secHead"><h2>Cronometro</h2><span class="hint">GPS del telefono, ritmo guidato a voce</span></div>
+  <div id="crResume" class="callout" style="display:none"></div>
+  <div class="crGrid">
+   <div class="form">
+    <h4>Seduta</h4>
+    <div class="crRow">
+     <select id="crSel" aria-label="Seduta"></select>
+     <button class="today" onclick="crOggi()">Seduta di oggi</button>
+    </div>
+    <div id="crFree" class="crFree" style="display:none">
+     <label>Ritmo obiettivo</label>
+     <div class="crPaceSet">
+      <button onclick="crFreeStep(-5)" aria-label="5 secondi più veloce">&minus;5&Prime;</button>
+      <div class="pv" id="crFreePace">5:35</div>
+      <button onclick="crFreeStep(5)" aria-label="5 secondi più lento">+5&Prime;</button>
+     </div>
+     <div class="chips" id="crFreeChips"></div>
+     <label>Margine</label>
+     <div class="chips" id="crTolChips"></div>
+     <label class="chk"><input type="checkbox" id="crFreeMax"> Avvisa solo se vado troppo veloce</label>
+    </div>
+    <div class="crPlan" id="crPlan"></div>
+    <div class="crShift" id="crShiftBox">
+     <span>Ritmi dei blocchi</span>
+     <button onclick="crShift(-5)">&minus;5&Prime;</button><b id="crShiftV">0&Prime;</b><button onclick="crShift(5)">+5&Prime;</button>
+     <span style="color:var(--ink3)">sposta tutti i blocchi di lavoro</span>
+    </div>
+   </div>
+   <div class="form">
+    <h4>Prima di partire</h4>
+    <div class="gpsLine"><span class="gpsDot" id="crGpsDot"></span><span id="crGpsTxt">GPS spento</span>
+     <button onclick="crGpsTest()" id="crGpsBtn" style="margin-left:auto">Prova GPS</button></div>
+    <div id="crGpsErr" class="warn" style="display:none"></div>
+    <label class="chk"><input type="checkbox" id="crOptVoce" checked> Voce: cambi di blocco, avvisi di ritmo, chilometri</label>
+    <label class="chk"><input type="checkbox" id="crOptVib" checked> Vibrazione agli avvisi</label>
+    <label class="chk"><input type="checkbox" id="crOptKm" checked> Annuncia ogni chilometro</label>
+    <button class="crGo" id="crGo" onclick="crStart()">Avvia</button>
+    <div class="crNote"><ul>
+     <li><b>Premi Prova GPS un minuto prima di partire</b>, all'aperto: il primo segnale buono può richiedere fino a un minuto.</li>
+     <li><b>Lo schermo resta acceso e la pagina deve stare in primo piano.</b> Se apri un'altra app il browser sospende la pagina: al rientro il tratto mancante viene stimato in linea retta.</li>
+     <li><b>Blocca</b> evita i tocchi in tasca. Per sbloccare tieni premuto due secondi.</li>
+     <li>Le prime volte tieni acceso anche Strava: è il confronto che ci dice quanto è preciso.</li>
+    </ul></div>
+   </div>
+  </div>
+  <div id="crSummary" class="crSum"></div>
+ </section>
+
+</main>
+<div id="runScreen" class="noprint" role="dialog" aria-label="Corsa in corso">
+ <div class="rsTop"><span id="rsSeg">—</span><span id="rsIdx"></span><span id="rsGps" class="rsGps">GPS</span></div>
+ <div class="rsProg"><i id="rsBar"></i></div>
+ <div class="rsBody">
+ <div><div class="rsMainL" id="rsMainL">Tempo</div>
+ <div class="rsMain" id="rsMain">0:00</div></div>
+ <div class="rsPace" id="rsPaceBox">
+  <div class="rsPaceV" id="rsPace">—</div>
+  <div class="rsPaceL">passo degli ultimi 30 secondi</div>
+  <div class="rsTarget" id="rsTarget"></div>
+ </div>
+ <div class="rsRow">
+  <div><b id="rsDist">0,00</b><span>km totali</span></div>
+  <div><b id="rsTime">0:00</b><span>tempo totale</span></div>
+  <div><b id="rsAvg">—</b><span id="rsAvgL">passo del blocco</span></div>
+ </div>
+ <div><div class="rsNext" id="rsNext"></div><div class="rsWarn" id="rsWarn"></div></div>
+ </div>
+ <div class="rsBtns">
+  <button id="rsPause" onclick="crPause()">Pausa</button>
+  <button id="rsSkip" onclick="crSkip()">Salta</button>
+  <button id="rsLock" onclick="crLock(true)">Blocca</button>
+  <button id="rsStop" onclick="crStopTap()">Stop</button>
+ </div>
+ <div id="rsLockLayer"><div>Schermo bloccato<br><span>Tieni premuto due secondi per sbloccare</span><div class="rsHold"><i id="rsHoldBar"></i></div></div></div>
+</div>
+
+<footer class="wrap">Il registro delle sedute resta nel file del piano: a fine corsa usa <b>Copia il riepilogo</b> e incollalo dove ti serve.</footer>
+<script>
+function oggiISO(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function apriTab(t){ document.body.setAttribute("data-tab","run"); }
+if("serviceWorker" in navigator){ window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); }); }
+
+/* ---------- cronometro GPS ---------- */
+(function(){
+var LIVE_KEY = "piano-luca-crono-live", LAST_KEY = "piano-luca-crono-last";
+function P(m,s){ return m*60+(s||0); }
+function T(n,min,k,p,tol,mode){ return {n:n,t:"time",v:min*60,k:k,p:p||null,tol:tol||0,mode:mode||"both"}; }
+function D(n,m,k,p,tol,mode){ return {n:n,t:"dist",v:m,k:k,p:p||null,tol:tol||0,mode:mode||"both"}; }
+function O(n,k,p,tol,mode){ return {n:n,t:"open",v:0,k:k,p:p||null,tol:tol||0,mode:mode||"both"}; }
+var WARM = function(min){ return T("Riscaldamento",min,"warm",P(6,25),15,"max"); };
+var COOL = function(min){ return T("Defaticamento",min,"cool",P(6,30),20,"max"); };
+function rip(n,first,rest){
+  var a=[WARM(15)];
+  for(var i=1;i<=n;i++){
+    a.push(D("Ripetuta "+i+" di "+n,1000,"work",i===1?first:rest,5));
+    if(i<n) a.push(T("Recupero",2,"rec"));
+  }
+  a.push(COOL(10)); return a;
+}
+function medio(min){ return [WARM(12), T("Medio "+min+"′",min,"work",P(5,35),5), COOL(13)]; }
+function finale(km,fin){ return [D("Lungo · "+km+" km",km*1000,"work",P(6,27),7,"max"), D("Finale · "+fin+" km",fin*1000,"work",P(5,50),5)]; }
+
+var PRESETS = [
+ {id:"libero", nome:"Corsa libera con ritmo obiettivo", kind:"libero", tipo:7},
+ {id:"rip5", nome:"Ripetute 5 × 1000 m (prima a 5:10, poi 5:05)", kind:"rip", tipo:0, segs:rip(5,P(5,10),P(5,5))},
+ {id:"rip6", nome:"Ripetute 6 × 1000 m (prima a 5:10, poi 5:05)", kind:"rip", tipo:0, segs:rip(6,P(5,10),P(5,5))},
+ {id:"rip6f", nome:"Ripetute 6 × 1000 m (prima a 5:05, poi 5:00)", kind:"rip", tipo:0, segs:rip(6,P(5,5),P(5,0))},
+ {id:"rip4", nome:"Ripetute 4 × 1000 m a 5:00", kind:"rip", tipo:0, segs:rip(4,P(5,0),P(5,0))},
+ {id:"fac30", nome:"Facile 30′", kind:"facile", tipo:1, segs:[T("Facile",30,"work",P(6,20),10,"max")]},
+ {id:"fac38", nome:"Facile 38′", kind:"facile", tipo:1, segs:[T("Facile",38,"work",P(6,20),10,"max")]},
+ {id:"fac40", nome:"Facile 40′", kind:"facile", tipo:1, segs:[T("Facile",40,"work",P(6,20),10,"max")]},
+ {id:"med2x10", nome:"Medio spezzato 2 × 10′ a 5:35", kind:"medio", tipo:2,
+   segs:[WARM(12), T("Medio 1 di 2",10,"work",P(5,35),5), T("Recupero",3,"rec"), T("Medio 2 di 2",10,"work",P(5,35),5), COOL(11)]},
+ {id:"med20", nome:"Medio continuo 20′ a 5:35", kind:"medio", tipo:2, segs:medio(20)},
+ {id:"med25", nome:"Medio continuo 25′ a 5:35", kind:"medio", tipo:2, segs:medio(25)},
+ {id:"lungo12", nome:"Lungo 12 km, nessun finale", kind:"lungo", tipo:3, segs:[D("Lungo · 12 km",12000,"work",P(6,27),7,"max")]},
+ {id:"lungo12f", nome:"Lungo 12 km con ultimi 2 a 5:50", kind:"lungo", tipo:3, segs:finale(10,2)},
+ {id:"lungo13f", nome:"Lungo 13 km con ultimi 3 a 5:50", kind:"lungo", tipo:3, segs:finale(10,3)},
+ {id:"test5", nome:"Test 5 km (5:12 · 5:08 · 5:05 · 5:02 · libero)", kind:"test5", tipo:4,
+   segs:[T("Riscaldamento e allunghi",10,"warm"), D("Test · km 1",1000,"work",P(5,12),4), D("Test · km 2",1000,"work",P(5,8),4),
+         D("Test · km 3",1000,"work",P(5,5),4), D("Test · km 4",1000,"work",P(5,2),4), D("Test · km 5, quello che resta",1000,"work"), COOL(10)]},
+ {id:"test10", nome:"10 km a 5:30 costanti", kind:"test10", tipo:5, segs:[D("10 km",10000,"work",P(5,30),5)]}
+];
+var BY = {}; PRESETS.forEach(function(p){ BY[p.id]=p; });
+var CR_DATE = {"2026-10-20":"rip5","2026-10-21":"fac38","2026-10-23":"med2x10","2026-10-24":"lungo12","2026-10-25":"lungo12",
+ "2026-10-27":"rip6","2026-10-28":"fac40","2026-10-30":"med20","2026-10-31":"lungo12f","2026-11-01":"lungo12f",
+ "2026-11-03":"rip6f","2026-11-04":"fac40","2026-11-06":"med25","2026-11-07":"lungo13f","2026-11-08":"lungo13f",
+ "2026-11-10":"rip4","2026-11-11":"fac30","2026-11-13":"test5","2026-11-14":"test10","2026-11-15":"test10"};
+var FREE_CHIPS = [["Facile",P(6,20),10,true],["Lungo",P(6,27),7,true],["Medio",P(5,35),5,false],
+                  ["Ritmo 10 km",P(5,30),5,false],["Ripetute",P(5,5),5,false],["Nessuno",null,0,false]];
+
+var $ = function(id){ return document.getElementById(id); };
+function now(){ return Date.now(); }
+function fmtT(ms){ var s=Math.max(0,Math.floor(ms/1000)), h=Math.floor(s/3600), m=Math.floor(s%3600/60), r=s%60;
+  return (h? h+":"+(m<10?"0":"")+m : m)+":"+(r<10?"0":"")+r; }
+function fmtP(sec){ if(sec==null||!isFinite(sec)||sec<=0||sec>1200) return "—"; sec=Math.round(sec);
+  return Math.floor(sec/60)+":"+(sec%60<10?"0":"")+(sec%60); }
+function fmtKm(m){ return (m/1000).toFixed(2).replace(".",","); }
+function sayP(sec){ sec=Math.round(sec); var m=Math.floor(sec/60), s=sec%60;
+  return s===0 ? m+" netti" : (s<10 ? m+" e zero "+s : m+" e "+s); }
+function sayT(ms){ var s=Math.round(ms/1000), m=Math.floor(s/60), r=s%60;
+  return (m? m+(m===1?" minuto":" minuti") : "")+(r? (m?" e ":"")+r+" secondi" : ""); }
+function hav(a,b){ var R=6371008.8, toR=Math.PI/180, dLa=(b.lat-a.lat)*toR, dLo=(b.lon-a.lon)*toR;
+  var x=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(a.lat*toR)*Math.cos(b.lat*toR)*Math.sin(dLo/2)*Math.sin(dLo/2);
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(x))); }
+function targetTxt(s){
+  if(!s || s.p==null) return "libero";
+  if(s.mode==="max") return "non sotto "+fmtP(s.p-s.tol);
+  return fmtP(s.p-s.tol)+"–"+fmtP(s.p+s.tol);
+}
+function lenTxt(s){
+  if(s.t==="time") return Math.round(s.v/60)+"′";
+  if(s.t==="dist") return s.v>=2000 ? (s.v/1000).toString().replace(".",",")+" km" : s.v+" m";
+  return "a piacere";
+}
+function store(k,v){ try{ if(v===null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function load(k){ try{ var r=localStorage.getItem(k); return r? JSON.parse(r) : null; }catch(e){ return null; } }
+
+/* ---------- impostazione ---------- */
+var SEL = {id:"libero", shift:0, free:{p:P(5,35), tol:5, max:false}};
+function buildSegs(){
+  var pr = BY[SEL.id];
+  if(pr.kind==="libero") return [O("Corsa libera","work",SEL.free.p,SEL.free.tol,SEL.free.max?"max":"both")];
+  return pr.segs.map(function(s){
+    var c = JSON.parse(JSON.stringify(s));
+    if(c.k==="work" && c.p!=null) c.p += SEL.shift;
+    return c;
+  });
+}
+function renderSetup(){
+  var pr = BY[SEL.id];
+  $("crSel").value = SEL.id;
+  var free = pr.kind==="libero";
+  $("crFree").style.display = free ? "block" : "none";
+  $("crShiftBox").style.display = free ? "none" : "flex";
+  $("crShiftV").innerHTML = (SEL.shift>0?"+":SEL.shift<0?"&minus;":"")+Math.abs(SEL.shift)+"&Prime;";
+  $("crFreePace").textContent = SEL.free.p==null ? "—" : fmtP(SEL.free.p);
+  $("crFreeMax").checked = SEL.free.max;
+  $("crFreeChips").innerHTML = FREE_CHIPS.map(function(c,i){
+    var on = (c[1]===SEL.free.p && (c[1]==null || c[2]===SEL.free.tol));
+    return "<button aria-pressed='"+on+"' onclick='crFreeChip("+i+")'>"+c[0]+(c[1]?" "+fmtP(c[1]):"")+"</button>";
+  }).join("");
+  $("crTolChips").innerHTML = [3,5,10].map(function(t){
+    return "<button aria-pressed='"+(SEL.free.tol===t)+"' onclick='crTol("+t+")'>± "+t+"″</button>"; }).join("");
+  var segs = buildSegs(), h="";
+  segs.forEach(function(s){
+    h += "<div class='crSeg "+(s.k==="work"?"work":"")+(s.p==null?" free":"")+"'><span class='sn'>"+s.n+"</span><span class='sv'>"+
+      lenTxt(s)+"</span><span class='st'>"+targetTxt(s)+"</span></div>";
+  });
+  $("crPlan").innerHTML = h;
+}
+window.crOggi = function(){ SEL.id = CR_DATE[oggiISO()] || "libero"; SEL.shift=0; renderSetup(); };
+window.crShift = function(d){ SEL.shift = Math.max(-20, Math.min(20, SEL.shift+d)); renderSetup(); };
+window.crFreeStep = function(d){ if(SEL.free.p==null) SEL.free.p=P(5,35); SEL.free.p = Math.max(P(3,30), Math.min(P(8,0), SEL.free.p+d)); renderSetup(); };
+window.crFreeChip = function(i){ var c=FREE_CHIPS[i]; SEL.free.p=c[1]; SEL.free.tol=c[2]||SEL.free.tol; SEL.free.max=c[3]; renderSetup(); };
+window.crTol = function(t){ SEL.free.tol=t; renderSetup(); };
+
+/* ---------- stato corsa ---------- */
+var CR = null, TICK = null, WATCH = null, WAKE = null, AC = null, GPS = {acc:null, t:0, err:null, dop:null};
+function fresh(){
+  var pr = BY[SEL.id];
+  return {id:pr.id, nome:pr.kind==="libero" ? "Corsa libera" : pr.nome, kind:pr.kind, tipo:pr.tipo, segs:buildSegs(),
+    startedAt:now(), running:true, paused:false, activeMs:0, lastTick:now(), dist:0, anchor:null, samples:[], ev:[],
+    seg:0, segStartMs:0, segStartD:0, segRes:[], kmNext:1000, kmSplits:[], kmLastMs:0,
+    al:{state:"none", n:0, last:0, warned:false, lastCheck:0}, cue:{}, lastSave:0, hiddenAt:0, gaps:0,
+    opt:{voce:$("crOptVoce").checked, vib:$("crOptVib").checked, km:$("crOptKm").checked}};
+}
+function cur(){ return CR && CR.segs[CR.seg]; }
+function tick(){
+  if(!CR) return;
+  var t = now();
+  if(CR.running && !CR.paused) CR.activeMs += Math.max(0, t - CR.lastTick);
+  CR.lastTick = t;
+}
+
+/* ---------- voce, suoni, vibrazione ---------- */
+var VOICE = null;
+function pickVoice(){
+  if(!window.speechSynthesis) return;
+  var vs = speechSynthesis.getVoices()||[];
+  VOICE = vs.filter(function(v){ return /^it/i.test(v.lang); })[0] || null;
+}
+if(window.speechSynthesis){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function say(t){
+  if(!CR || !CR.opt.voce || !window.speechSynthesis) return;
+  try{ var u = new SpeechSynthesisUtterance(t); u.lang="it-IT"; u.rate=1.05; if(VOICE) u.voice=VOICE; speechSynthesis.speak(u); }catch(e){}
+}
+function beep(n){
+  try{
+    if(!AC) return;
+    for(var i=0;i<(n||1);i++){
+      var o=AC.createOscillator(), g=AC.createGain(), t0=AC.currentTime+i*0.22;
+      o.frequency.value=880; o.connect(g); g.connect(AC.destination);
+      g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(0.35,t0+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t0+0.16);
+      o.start(t0); o.stop(t0+0.18);
+    }
+  }catch(e){}
+}
+function vib(p){ if(CR && CR.opt.vib && navigator.vibrate){ try{ navigator.vibrate(p); }catch(e){} } }
+
+/* ---------- GPS ---------- */
+function gpsUi(){
+  var a = GPS.acc, cls="", txt="GPS spento";
+  if(WATCH!==null){
+    if(GPS.err){ cls="bad"; txt="GPS non disponibile"; }
+    else if(a==null || now()-GPS.t>15000){ cls="mid"; txt="GPS: attendo il segnale…"; }
+    else if(a<=10){ cls="ok"; txt="GPS ottimo · ±"+Math.round(a)+" m"; }
+    else if(a<=20){ cls="ok"; txt="GPS buono · ±"+Math.round(a)+" m"; }
+    else if(a<=30){ cls="mid"; txt="GPS debole · ±"+Math.round(a)+" m"; }
+    else { cls="bad"; txt="GPS scarso · ±"+Math.round(a)+" m"; }
+  }
+  if(WATCH!==null && !GPS.err && a!=null && GPS.dop!==null) txt += GPS.dop ? " · con velocità Doppler" : " · senza velocità Doppler";
+  $("crGpsDot").className = "gpsDot "+cls; $("crGpsTxt").textContent = txt;
+  var g=$("rsGps"); g.className="rsGps "+cls; g.textContent = txt.replace("GPS: ","").replace("attendo il segnale…","GPS: attesa").replace(/ · (con|senza) velocità Doppler/,"");
+}
+var ERR = {
+ 1:"Il permesso di posizione è stato negato. Su Android: tocca il lucchetto o il menu del browser, Impostazioni sito, Posizione, Consenti. Se il file è aperto dai Download e il permesso non compare, il browser non concede la posizione a un file locale: serve aprire la pagina da un indirizzo https.",
+ 2:"Posizione non disponibile: attiva la Localizzazione del telefono e riprova all'aperto.",
+ 3:"Il GPS non risponde ancora. All'aperto il primo segnale può richiedere un minuto: riprova."
+};
+function gpsStart(){
+  if(WATCH!==null) return true;
+  if(!("geolocation" in navigator)){ gpsFail("Questo browser non offre il GPS alla pagina."); return false; }
+  if(window.isSecureContext===false){ gpsFail("Il browser considera la pagina non sicura e blocca il GPS. Serve aprirla da un indirizzo https."); return false; }
+  GPS.err=null; $("crGpsErr").style.display="none";
+  WATCH = navigator.geolocation.watchPosition(onFix, function(e){
+    if(e.code===3){ GPS.err=null; gpsUi(); return; }
+    gpsFail(ERR[e.code] || ("Errore GPS: "+e.message));
+  }, {enableHighAccuracy:true, maximumAge:0, timeout:30000});
+  gpsUi(); return true;
+}
+function gpsStop(){ if(WATCH!==null){ try{ navigator.geolocation.clearWatch(WATCH); }catch(e){} } WATCH=null; GPS.acc=null; gpsUi(); }
+function gpsFail(msg){ GPS.err=msg; var e=$("crGpsErr"); e.textContent=msg; e.style.display="block"; gpsUi(); if(CR) $("rsWarn").textContent=msg; }
+window.crGpsTest = function(){ gpsStart(); };
+setInterval(gpsUi, 3000);
+
+function pushEv(){
+  CR.ev.push({ms:CR.activeMs, d:CR.dist});
+  var cut = CR.activeMs - 180000;
+  while(CR.ev.length>2 && CR.ev[0].ms < cut) CR.ev.shift();
+}
+function pushSample(v){
+  CR.samples.push({ms:CR.activeMs, d:CR.dist, v:(v==null||isNaN(v))?null:v});
+  var cut = CR.activeMs - 90000;
+  while(CR.samples.length>2 && CR.samples[0].ms < cut) CR.samples.shift();
+}
+/* filtro di Kalman a velocità costante, un asse alla volta, in metri locali.
+   Toglie lo zig-zag del rumore GPS che gonfia la distanza. */
+var KF = null;
+function kfAxis(a, z, R, dt){
+  var q = 0.1, dt2 = dt*dt, dt3 = dt2*dt, dt4 = dt3*dt;
+  var p = a[0]+a[1]*dt, v = a[1];
+  var P00 = a[2]+dt*(a[3]+a[4])+dt2*a[5]+q*dt4/4, P01 = a[3]+dt*a[5]+q*dt3/2, P10 = a[4]+dt*a[5]+q*dt3/2, P11 = a[5]+q*dt2;
+  var S = P00+R, K0 = P00/S, K1 = P10/S, y = z-p;
+  return [p+K0*y, v+K1*y, (1-K0)*P00, (1-K0)*P01, P10-K1*P00, P11-K1*P01];
+}
+function kfStep(x, y, R, ms){
+  if(!KF){ KF = {ms:ms, ax:[x,0,R,0,0,9], ay:[y,0,R,0,0,9]}; return {x:x, y:y, v:0}; }
+  var dt = Math.max(0.2, (ms-KF.ms)/1000); KF.ms = ms;
+  KF.ax = kfAxis(KF.ax, x, R, dt); KF.ay = kfAxis(KF.ay, y, R, dt);
+  return {x:KF.ax[0], y:KF.ay[0], v:Math.sqrt(KF.ax[1]*KF.ax[1]+KF.ay[1]*KF.ay[1])};
+}
+function onFix(pos){
+  var c = pos.coords;
+  GPS.acc = c.accuracy; GPS.t = now(); GPS.err = null;
+  if(c.speed!=null && !isNaN(c.speed)) GPS.dop = true; else if(GPS.dop===null) GPS.dop = false;
+  gpsUi();
+  if(!CR || !CR.running) return;
+  tick();
+  if(CR.paused){ CR.anchor = null; KF = null; return; }
+  if(c.accuracy > 30) return;
+  if(!CR.org) CR.org = {lat:c.latitude, lon:c.longitude, k:Math.cos(c.latitude*Math.PI/180)};
+  var x = (c.longitude-CR.org.lon)*111320*CR.org.k, y = (c.latitude-CR.org.lat)*111320;
+  var R = Math.max(16, c.accuracy*c.accuracy);
+  var spdGps = (c.speed!=null && !isNaN(c.speed) && c.speed>=0) ? c.speed : null;
+  var gap = CR.anchor ? (CR.activeMs - CR.anchor.ms)/1000 : 0;
+  if(CR.anchor && gap>0 && gap<10 && Math.sqrt((x-CR.anchor.x)*(x-CR.anchor.x)+(y-CR.anchor.y)*(y-CR.anchor.y))/gap > 9) return; /* salto */
+  if(gap > 8) KF = null;          /* dopo una sospensione si riparte dal punto nuovo */
+  var k = kfStep(x, y, R, CR.activeMs), inc = 0;
+  if(CR.anchor){
+    if(gap > 8){
+      inc = Math.sqrt((x-CR.anchor.x)*(x-CR.anchor.x)+(y-CR.anchor.y)*(y-CR.anchor.y));
+      if(inc/gap > 7.5) inc = 0;  /* tratto sospeso: linea retta, se plausibile */
+    } else if(spdGps!=null){
+      inc = spdGps < 0.5 ? 0 : spdGps*gap;   /* velocità Doppler del GPS */
+    } else {
+      /* senza Doppler: posizioni filtrate, e un nuovo punto solo ogni 10 m percorsi.
+         Campionare largo è ciò che toglie il rumore residuo dalla somma delle distanze. */
+      var dk = Math.sqrt((k.x-CR.anchor.x)*(k.x-CR.anchor.x)+(k.y-CR.anchor.y)*(k.y-CR.anchor.y));
+      if(dk < 10 || k.v < 0.5){ pushSample(null); return; }
+      inc = dk;
+    }
+  }
+  if(inc > 0) addDist(inc, CR.anchor.ms, CR.activeMs);
+  CR.anchor = {x:k.x, y:k.y, ms:CR.activeMs};
+  pushSample(spdGps); pushEv();
+}
+function addDist(d, msA, msB){
+  var d0 = CR.dist, d1 = d0 + d;
+  while(d1 >= CR.kmNext){
+    var ms = msA + (CR.kmNext-d0)/d*(msB-msA), split = ms - CR.kmLastMs;
+    CR.kmSplits.push(split); CR.kmLastMs = ms;
+    var s = cur(), quiet = (CR.kind==="rip"||CR.kind==="medio"||CR.kind==="test5") && s && s.k==="work";
+    if(CR.opt.km && !quiet) say("Chilometro "+(CR.kmNext/1000)+". "+sayP(split/1000));
+    CR.kmNext += 1000;
+  }
+  var s2 = cur();
+  while(s2 && s2.t==="dist" && d1 >= CR.segStartD + s2.v){
+    var end = CR.segStartD + s2.v, msE = msA + (end-d0)/d*(msB-msA);
+    nextSeg(msE, end); s2 = cur();
+  }
+  CR.dist = d1;
+}
+/* passo su finestra mobile, limitata all'inizio del blocco.
+   Prima scelta: velocità Doppler del GPS (coords.speed), molto meno rumorosa delle posizioni.
+   Altrimenti: distanza fra due punti di avanzamento esatti, senza l'errore di quantizzazione delle soglie. */
+function rolling(W, from){
+  var nowMs = CR.activeMs, cut = Math.max(nowMs - W*1000, from||0);
+  var win = CR.samples.filter(function(x){ return x.ms>=cut; });
+  var vs = win.filter(function(x){ return x.v!=null && x.v>=0; });
+  if(win.length>=3 && vs.length >= Math.max(3, 0.7*win.length) && (nowMs-cut) >= Math.min(12000, W*400)){
+    var m = vs.reduce(function(a,x){ return a+x.v; },0)/vs.length;
+    return m < 0.8 ? null : 1000/m;
+  }
+  var ev = CR.ev.filter(function(x){ return x.ms>=cut; });
+  if(ev.length<2) return null;
+  var a = ev[0], b = ev[ev.length-1], dd = b.d-a.d, dt = (b.ms-a.ms)/1000;
+  if(nowMs - b.ms > 12000) return null;
+  if(dt < W*0.4 || dd < 25) return null;
+  return dt/dd*1000;
+}
+function band(s, p, extra){
+  if(!s || s.p==null || p==null) return "none";
+  var e = extra||0; p = Math.round(p);
+  if(p < s.p - s.tol - e) return "fast";
+  if(s.mode!=="max" && p > s.p + s.tol + e) return "slow";
+  return "ok";
+}
+
+/* ---------- blocchi ---------- */
+function annuncia(s, i){
+  var tot = CR.segs.length, txt = s.n.replace(/ · /g,", ").replace(/′/g," minuti");
+  if(s.t==="time" && !/minuti/.test(txt)) txt += ". "+Math.round(s.v/60)+" minuti";
+  if(s.t==="dist") txt += s.v>=2000 ? "" : ". "+s.v+" metri";
+  if(s.p!=null) txt += s.mode==="max" ? ". Non sotto "+sayP(s.p-s.tol) : ". A "+sayP(s.p);
+  else if(s.k==="rec") txt += ", piano";
+  say(txt+".");
+}
+function nextSeg(endMs, endD){
+  var s = cur();
+  var r = {n:s.n, k:s.k, p:s.p, tol:s.tol, mode:s.mode, t:s.t, d:endD-CR.segStartD, ms:endMs-CR.segStartMs};
+  CR.segRes.push(r);
+  if(s.k==="work" && r.d>50){
+    var pace = r.ms/1000/(r.d/1000);
+    if(s.t==="dist" && s.v<=1000) say("Fatto. "+sayP(pace)+".");
+    else if(s.t!=="open") say("Fine blocco. Media "+sayP(pace)+".");
+  }
+  CR.seg++; CR.segStartMs=endMs; CR.segStartD=endD; CR.cue={}; CR.al={state:"none",n:0,last:0,warned:false,lastCheck:0};
+  if(CR.seg >= CR.segs.length){
+    CR.segs.push(O("Fuori programma","cool"));
+    beep(3); vib([300,120,300,120,300]);
+    if(CR.kind==="test5"){
+      var t5 = CR.segRes.filter(function(x){ return /^Test/.test(x.n); }).reduce(function(a,x){ return a+x.ms; },0);
+      if(t5) say("Test finito. Cinque chilometri in "+sayT(t5)+".");
+    }
+    say("Programma finito. Ferma il cronometro quando vuoi.");
+  } else {
+    beep(2); vib([250,100,250]); annuncia(cur(), CR.seg);
+  }
+}
+function cues(){
+  var s = cur(); if(!s) return;
+  if(s.t==="time"){
+    var rem = s.v*1000 - (CR.activeMs - CR.segStartMs);
+    if(rem<=10500 && rem>0 && !CR.cue.t10 && s.v>=60){ CR.cue.t10=1; say("Dieci secondi."); }
+  } else if(s.t==="dist"){
+    var remD = CR.segStartD + s.v - CR.dist;
+    if(remD<=100 && remD>0 && !CR.cue.d100 && s.v>=800){ CR.cue.d100=1; say("Cento metri."); }
+  }
+}
+function checkAlert(){
+  var s = cur(), t = now();
+  if(!s || s.p==null) return;
+  if(t - CR.al.lastCheck < 10000) return;
+  CR.al.lastCheck = t;
+  if((CR.activeMs - CR.segStartMs)/1000 < 45) return;
+  var recent = CR.samples.slice(-10), dop = recent.length>=5 && recent.filter(function(x){ return x.v!=null; }).length >= 0.7*recent.length;
+  var p = rolling(dop ? 60 : 90, CR.segStartMs+5000), st = band(s, p, dop ? 2 : 5);
+  if(st==="none") return;
+  if(st===CR.al.state) CR.al.n++; else { CR.al.state=st; CR.al.n=1; }
+  if(st!=="ok" && CR.al.n>=2 && t - CR.al.last > 60000){
+    vib(st==="fast" ? [120,80,120,80,120] : [400]);
+    say((st==="fast" ? "Troppo veloce. " : "Troppo lento. ")+sayP(p)+".");
+    CR.al.last = t; CR.al.warned = true;
+  } else if(st==="ok" && CR.al.warned && CR.al.n>=2){
+    say("Ritmo giusto."); CR.al.warned = false;
+  }
+}
+
+/* ---------- schermo ---------- */
+function render(){
+  if(!CR) return;
+  var s = cur(), inMs = CR.activeMs - CR.segStartMs, inD = CR.dist - CR.segStartD;
+  var realTot = CR.segs.filter(function(x){ return x.n!=="Fuori programma"; }).length;
+  $("rsSeg").textContent = s.n;
+  $("rsIdx").textContent = (s.n==="Fuori programma"||realTot<2) ? "" : (Math.min(CR.seg+1,realTot)+" di "+realTot);
+  var prog = 0, main, mainL;
+  if(s.t==="time"){ prog = inMs/(s.v*1000); main = fmtT(s.v*1000 - inMs + 999); mainL = "al cambio"; }
+  else if(s.t==="dist"){ var rem = Math.max(0, s.v - inD); prog = inD/s.v;
+    main = rem>=2000 ? fmtKm(rem) : Math.round(rem)+" m"; mainL = rem>=2000 ? "km alla fine del blocco" : "alla fine del blocco"; }
+  else { main = fmtT(CR.activeMs); mainL = "tempo"; }
+  $("rsMain").textContent = main; $("rsMainL").textContent = CR.paused ? "in pausa" : mainL;
+  $("rsBar").style.width = Math.max(0,Math.min(100,prog*100))+"%";
+  var p = rolling(30, CR.segStartMs), st = band(s, p);
+  $("rsPace").textContent = fmtP(p);
+  $("rsPaceBox").className = "rsPace "+(st==="none"?"":st);
+  $("rsTarget").textContent = s.p==null ? "nessun ritmo obiettivo" :
+    (st==="fast" ? "troppo veloce · " : st==="slow" ? "troppo lento · " : st==="ok" ? "nel ritmo · " : "obiettivo ")+targetTxt(s);
+  $("rsDist").textContent = fmtKm(CR.dist);
+  $("rsTime").textContent = fmtT(CR.activeMs);
+  var segAvg = inD>50 ? inMs/1000/(inD/1000) : null;
+  if(s.t==="open" && CR.segs.length===1){ $("rsAvg").textContent = CR.dist>50 ? fmtP(CR.activeMs/CR.dist) : "—"; $("rsAvgL").textContent="passo medio"; }
+  else { $("rsAvg").textContent = fmtP(segAvg); $("rsAvgL").textContent="passo del blocco"; }
+  var nx = CR.segs[CR.seg+1];
+  $("rsNext").textContent = nx && nx.n!=="Fuori programma" ? "Poi: "+nx.n+" · "+lenTxt(nx)+(nx.p!=null?" · "+targetTxt(nx):"") : "";
+  $("rsPause").textContent = CR.paused ? "Riprendi" : "Pausa";
+  $("rsPause").classList.toggle("paused", CR.paused);
+  $("rsSkip").textContent = s.n==="Fuori programma" ? "—" : "Salta";
+  $("rsSkip").disabled = s.n==="Fuori programma";
+  document.getElementById("runScreen").classList.toggle("rsPaused", CR.paused);
+}
+function loop(){
+  if(!CR || !CR.running) return;
+  tick();
+  if(!CR.paused){
+    var s = cur();
+    while(s && s.t==="time" && CR.activeMs - CR.segStartMs >= s.v*1000){ nextSeg(CR.segStartMs + s.v*1000, CR.dist); s = cur(); }
+    cues(); checkAlert();
+  }
+  if(now() - CR.lastSave > 5000){ saveLive(); }
+  render();
+}
+function saveLive(){
+  if(!CR) return; CR.lastSave = now();
+  var o = {}; for(var k in CR){ if(k!=="anchor" && k!=="samples" && k!=="ev") o[k]=CR[k]; }
+  o.savedAt = now(); store(LIVE_KEY, o);
+}
+
+/* ---------- comandi ---------- */
+async function wake(){
+  try{ if("wakeLock" in navigator && document.visibilityState==="visible"){ WAKE = await navigator.wakeLock.request("screen"); } }
+  catch(e){ WAKE = null; }
+  if(!WAKE && CR) $("rsWarn").textContent = "Il telefono potrebbe spegnere lo schermo: alza lo spegnimento automatico a 10 minuti.";
+}
+function enterRun(){
+  document.body.setAttribute("data-run","1");
+  try{ history.pushState({crono:1}, ""); }catch(e){}
+  wake();
+  if(TICK) clearInterval(TICK);
+  TICK = setInterval(loop, 500);
+  render();
+}
+window.crStart = function(){
+  if(CR && CR.running) return;
+  if(!gpsStart()) return;
+  try{ AC = AC || new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume(); }catch(e){ AC=null; }
+  CR = fresh(); KF = null;
+  $("rsWarn").textContent = (GPS.acc==null || GPS.acc>20) ? "Segnale GPS ancora in arrivo: la distanza parte dal primo punto buono." : "";
+  store(LAST_KEY, null); $("crSummary").innerHTML = ""; $("crResume").style.display="none";
+  enterRun();
+  beep(1); vib([200]);
+  if(window.speechSynthesis){ try{ speechSynthesis.cancel(); }catch(e){} }
+  say("Si parte."); annuncia(cur(), 0);
+};
+window.crPause = function(){
+  if(!CR) return; tick();
+  CR.paused = !CR.paused; CR.anchor = null; CR.lastTick = now();
+  say(CR.paused ? "Pausa." : "Si riparte."); saveLive(); render();
+};
+window.crSkip = function(){
+  if(!CR || CR.paused) return; var s=cur(); if(!s || s.n==="Fuori programma") return;
+  tick(); nextSeg(CR.activeMs, CR.dist); render();
+};
+var armT = null;
+window.crStopTap = function(){
+  var b = $("rsStop");
+  if(b.classList.contains("armed")){ clearTimeout(armT); b.classList.remove("armed"); b.textContent="Stop"; stop(); return; }
+  b.classList.add("armed"); b.textContent = "Conferma";
+  armT = setTimeout(function(){ b.classList.remove("armed"); b.textContent="Stop"; }, 3000);
+};
+function stop(){
+  if(!CR) return; tick();
+  var s = cur();
+  if(s && (CR.activeMs - CR.segStartMs > 5000) && s.n!=="Fuori programma"){
+    CR.segRes.push({n:s.n+" (interrotto)", k:s.k, p:s.p, tol:s.tol, mode:s.mode, t:s.t, d:CR.dist-CR.segStartD, ms:CR.activeMs-CR.segStartMs});
+  } else if(s && s.n==="Fuori programma" && CR.activeMs - CR.segStartMs > 5000){
+    CR.segRes.push({n:"Fuori programma", k:"cool", p:null, t:"open", d:CR.dist-CR.segStartD, ms:CR.activeMs-CR.segStartMs});
+  }
+  CR.running = false;
+  if(TICK) clearInterval(TICK); TICK=null;
+  if(WAKE){ try{ WAKE.release(); }catch(e){} WAKE=null; }
+  gpsStop();
+  say("Corsa salvata. "+fmtKm(CR.dist).replace(",", " virgola ")+" chilometri.");
+  var res = {id:CR.id, nome:CR.nome, kind:CR.kind, tipo:CR.tipo, startedAt:CR.startedAt, activeMs:CR.activeMs, dist:CR.dist,
+    segRes:CR.segRes, kmSplits:CR.kmSplits, gaps:CR.gaps};
+  store(LAST_KEY, res); store(LIVE_KEY, null);
+  CR = null;
+  document.body.removeAttribute("data-run");
+  crLock(false);
+  apriTab("run"); summary(res);
+  window.scrollTo({top:document.getElementById("crSummary").offsetTop-90, behavior:"instant"});
+}
+
+/* blocco schermo */
+var holdT=null, holdRaf=null, holdStart=0;
+window.crLock = function(on){ $("rsLockLayer").classList.toggle("on", !!on); };
+(function(){
+  var L = $("rsLockLayer");
+  function startHold(e){ e.preventDefault(); holdStart=now();
+    holdRaf = setInterval(function(){ var f=(now()-holdStart)/2000; $("rsHoldBar").style.width=Math.min(100,f*100)+"%";
+      if(f>=1){ endHold(); crLock(false); } }, 50); }
+  function endHold(){ clearInterval(holdRaf); holdRaf=null; $("rsHoldBar").style.width="0"; }
+  L.addEventListener("pointerdown", startHold); L.addEventListener("pointerup", endHold);
+  L.addEventListener("pointercancel", endHold); L.addEventListener("pointerleave", endHold);
+  L.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+})();
+
+document.addEventListener("visibilitychange", function(){
+  if(!CR || !CR.running) return;
+  if(document.visibilityState==="hidden"){ CR.hiddenAt = now(); saveLive(); }
+  else {
+    var gap = CR.hiddenAt ? now()-CR.hiddenAt : 0; CR.hiddenAt = 0;
+    if(gap > 8000){ CR.gaps++; $("rsWarn").textContent = "La pagina è rimasta sospesa per "+fmtT(gap)+": quel tratto è stimato in linea retta."; }
+    wake(); loop();
+  }
+});
+window.addEventListener("popstate", function(){
+  if(CR && CR.running){ try{ history.pushState({crono:1}, ""); }catch(e){} $("rsWarn").textContent = "Per uscire ferma prima il cronometro."; }
+});
+window.addEventListener("beforeunload", function(e){ if(CR && CR.running){ saveLive(); e.preventDefault(); e.returnValue=""; } });
+
+/* ---------- riepilogo ---------- */
+function summaryText(r){
+  var d = new Date(r.startedAt), gg = ["Dom","Lun","Mar","Mer","Gio","Ven","Sab"][d.getDay()];
+  var L = [gg+" "+String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+" · "+r.nome,
+    fmtKm(r.dist)+" km in "+fmtT(r.activeMs)+(r.dist>50?" · "+fmtP(r.activeMs/r.dist)+" /km":"")];
+  if(r.segRes.length>1 || (r.segRes[0] && r.segRes[0].n!=="Corsa libera")){
+    r.segRes.forEach(function(x){
+      L.push(x.n+": "+fmtT(x.ms)+" · "+fmtKm(x.d)+" km · "+(x.d>50?fmtP(x.ms/x.d):"—")+(x.p!=null?" (obiettivo "+targetTxt(x)+")":""));
+    });
+  }
+  if(r.kmSplits.length) L.push("Km: "+r.kmSplits.map(function(s){ return fmtP(s/1000); }).join(" · "));
+  return L.join("\n");
+}
+function summary(r){
+  if(!r){ $("crSummary").innerHTML=""; return; }
+  var avg = r.dist>50 ? fmtP(r.activeMs/r.dist) : "—";
+  var h = "<div class='secHead' style='margin-bottom:12px'><h2 style='font-size:1.15rem'>Ultima corsa</h2><span class='hint'>"+r.nome+"</span></div>"+
+    "<div class='stats'><div><div class='v'>"+fmtKm(r.dist)+" km</div><div class='l'>distanza</div></div>"+
+    "<div><div class='v'>"+fmtT(r.activeMs)+"</div><div class='l'>tempo in movimento</div></div>"+
+    "<div><div class='v'>"+avg+" /km</div><div class='l'>passo medio</div></div></div>";
+  if(r.segRes.length){
+    h += "<div class='scroll'><table class='tbl'><tr><th>Blocco</th><th>Tempo</th><th>km</th><th>Passo</th><th>Obiettivo</th></tr>";
+    r.segRes.forEach(function(x){
+      var pc = x.d>50 ? x.ms/x.d : null, st = x.p!=null ? band(x, pc) : "none";
+      h += "<tr><td>"+x.n+"</td><td>"+fmtT(x.ms)+"</td><td>"+fmtKm(x.d)+"</td><td class='"+(st==="none"?"":st)+"'>"+fmtP(pc)+"</td><td class='tg'>"+targetTxt(x)+"</td></tr>";
+    });
+    h += "</table></div>";
+  }
+  if(r.kmSplits.length) h += "<div class='kmList'>"+r.kmSplits.map(function(s,i){ return "<span><b>"+(i+1)+"</b>"+fmtP(s/1000)+"</span>"; }).join("")+"</div>";
+  if(r.gaps) h += "<div class='warn' style='margin-top:12px'>La pagina è stata sospesa "+r.gaps+(r.gaps===1?" volta":" volte")+": in quei tratti la distanza è stimata in linea retta, quindi leggermente per difetto.</div>";
+  h += "<div class='acts'><button class='primary' onclick='crCopy()'>Copia il riepilogo</button><button onclick='crDiscard()'>Elimina</button></div>"+
+    "<p class='crNote' id='crCopyMsg'></p>";
+  $("crSummary").innerHTML = h;
+}
+window.crCopy = function(){
+  var r = load(LAST_KEY); if(!r) return; var t = summaryText(r), m = $("crCopyMsg");
+  var ta = $("crCopyTxt");
+  if(!ta){ ta = document.createElement("textarea"); ta.id = "crCopyTxt"; ta.readOnly = true; ta.style.cssText = "margin-top:10px;min-height:150px;font-size:.78rem";
+    m.parentNode.insertBefore(ta, m); }
+  ta.value = t; ta.focus(); ta.select();
+  var ok = false; try{ ok = document.execCommand("copy"); }catch(e){}
+  if(!ok && navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ m.textContent = "Copiato: incollalo in chat."; }, function(){}); }
+  m.textContent = ok ? "Copiato: incollalo in chat." : "Se non si è copiato da solo, tieni premuto sul testo e scegli Copia.";
+};
+window.crToLog = function(){
+  var r = load(LAST_KEY); if(!r) return;
+  var d = new Date(r.startedAt);
+  $("f-data").value = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  $("f-tipo").selectedIndex = r.tipo||0;
+  $("f-km").value = (r.dist/1000).toFixed(2);
+  $("f-tempo").value = fmtT(r.activeMs);
+  var work = r.segRes.filter(function(x){ return x.k==="work" && x.d>50 && x.p!=null; });
+  if(work.length>1) $("f-note").value = work.map(function(x){ return fmtP(x.ms/x.d); }).join(" · ")+" — fiato , gambe ";
+  apriTab("log");
+  setTimeout(function(){ $("f-sforzo").focus(); $("f-sforzo").scrollIntoView({behavior:"smooth",block:"center"}); }, 60);
+};
+window.crDiscard = function(){ store(LAST_KEY, null); summary(null); };
+
+/* corsa interrotta */
+function offerResume(){
+  var o = load(LIVE_KEY);
+  if(!o || !o.savedAt || now()-o.savedAt > 3*3600*1000){ store(LIVE_KEY,null); return; }
+  var box = $("crResume"), t = new Date(o.startedAt);
+  box.innerHTML = "<b>C'è una corsa interrotta</b>, partita alle "+String(t.getHours()).padStart(2,"0")+":"+String(t.getMinutes()).padStart(2,"0")+
+    ": "+fmtKm(o.dist)+" km in "+fmtT(o.activeMs)+". <div style='display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'>"+
+    "<button class='primary' onclick='crResume()'>Riprendi</button><button onclick='crCloseLive()'>Chiudi e vedi il riepilogo</button><button onclick='crDropLive()'>Elimina</button></div>";
+  box.style.display = "block";
+}
+window.crResume = function(){
+  var o = load(LIVE_KEY); if(!o) return;
+  CR = o; CR.running = true; CR.paused = true; CR.anchor = null; CR.samples = []; CR.ev = []; CR.lastTick = now(); CR.hiddenAt = 0; KF = null;
+  CR.opt = {voce:$("crOptVoce").checked, vib:$("crOptVib").checked, km:$("crOptKm").checked};
+  $("crResume").style.display = "none";
+  gpsStart();
+  try{ AC = AC || new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+  enterRun();
+  $("rsWarn").textContent = "Corsa ripresa in pausa: tocca Riprendi quando riparti.";
+};
+window.crCloseLive = function(){
+  var o = load(LIVE_KEY); if(!o) return;
+  CR = o; CR.running = true; CR.lastTick = now(); CR.paused = true; CR.opt = {voce:false, vib:false, km:false};
+  $("crResume").style.display = "none"; stop();
+};
+window.crDropLive = function(){ store(LIVE_KEY, null); $("crResume").style.display = "none"; };
+
+/* avvio */
+(function(){
+  var sel = $("crSel"), groups = {libero:"Libera", rip:"Ripetute", facile:"Facile", medio:"Medio", lungo:"Lungo", test5:"Test", test10:"Test"}, h="", g="";
+  PRESETS.forEach(function(p){
+    var gn = groups[p.kind];
+    if(gn!==g){ if(g) h+="</optgroup>"; h+="<optgroup label='"+gn+"'>"; g=gn; }
+    h += "<option value='"+p.id+"'>"+p.nome+"</option>";
+  });
+  sel.innerHTML = h+"</optgroup>";
+  sel.addEventListener("change", function(){ SEL.id = sel.value; SEL.shift = 0; renderSetup(); });
+  $("crFreeMax").addEventListener("change", function(){ SEL.free.max = this.checked; renderSetup(); });
+  SEL.id = CR_DATE[oggiISO()] || "libero";
+  renderSetup(); gpsUi(); summary(load(LAST_KEY)); offerResume();
+})();
+window.__crono = {state:function(){ return CR; }, rolling:function(w){ return CR?rolling(w):null; }, presets:PRESETS};
+})();
+</script>
+</body>
+</html>
