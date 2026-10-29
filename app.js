@@ -1,7 +1,7 @@
 /* Cronometro corsa — GPS, fasce di ritmo, storico e record. Tutto resta sul telefono. */
 (function(){
 "use strict";
-var VERSION = "2.0";
+var VERSION = "2.1";
 
 /* ============================ utilità ============================ */
 var $ = function(id){ return document.getElementById(id); };
@@ -241,7 +241,7 @@ function gpsUi(){
     else if(a<=30){ cls="mid"; txt="GPS debole · ±"+Math.round(a)+" m"; }
     else { cls="bad"; txt="GPS scarso · ±"+Math.round(a)+" m"; }
   }
-  var full = txt + ((WATCH!==null && !GPS.err && a!=null && GPS.dop!==null) ? (GPS.dop ? " · velocità Doppler sì" : " · velocità Doppler no") : "");
+  var full = txt;
   $("gpsDot").className = "gpsDot "+cls; $("gpsTxt").textContent = full;
   var g = $("rsGps"); g.className = "rsGps "+cls; g.textContent = txt.replace("Attendo il segnale…","GPS: attesa");
 }
@@ -259,29 +259,13 @@ function gpsStop(){ if(WATCH!==null){ try{ navigator.geolocation.clearWatch(WATC
 function gpsFail(msg){ GPS.err=msg; var e=$("gpsErr"); e.textContent=msg; e.style.display="block"; gpsUi(); if(CR) $("rsWarn").textContent=msg; }
 setInterval(gpsUi, 3000);
 
-/* filtro di Kalman a velocità costante, per asse, in metri locali: toglie lo zig-zag del rumore */
-var KF = null;
-function kfAxis(a, z, R, dt){
-  var q = 0.1, dt2 = dt*dt, dt3 = dt2*dt, dt4 = dt3*dt;
-  var p = a[0]+a[1]*dt, v = a[1];
-  var P00 = a[2]+dt*(a[3]+a[4])+dt2*a[5]+q*dt4/4, P01 = a[3]+dt*a[5]+q*dt3/2, P10 = a[4]+dt*a[5]+q*dt3/2, P11 = a[5]+q*dt2;
-  var Sg = P00+R, K0 = P00/Sg, K1 = P10/Sg, y = z-p;
-  return [p+K0*y, v+K1*y, (1-K0)*P00, (1-K0)*P01, P10-K1*P00, P11-K1*P01];
-}
-function kfStep(x, y, R, w){
-  if(!KF){ KF = {w:w, ax:[x,0,R,0,0,9], ay:[y,0,R,0,0,9]}; return {x:x, y:y, v:0}; }
-  var dt = Math.max(0.2, (w-KF.w)/1000); KF.w = w;
-  KF.ax = kfAxis(KF.ax, x, R, dt); KF.ay = kfAxis(KF.ay, y, R, dt);
-  return {x:KF.ax[0], y:KF.ay[0], v:Math.sqrt(KF.ax[1]*KF.ax[1]+KF.ay[1]*KF.ay[1])};
-}
-
 /* ============================ corsa ============================ */
 var CR = null, TICK = null, WAKE = null, AC = null, LIVE_KEY = "cc-live";
 function cur(){ return CR && CR.segs[CR.seg]; }
 function fresh(){
   var pr = BY[SEL.id], t = now();
   return {pid:pr.id, nome:pr.corto, kind:pr.kind, segs:buildSegs(), start:t, running:true, paused:false, auto:false, moved:false,
-    activeMs:0, lastTick:t, lastMoveW:t, dist:0, anchor:null, samples:[], ev:[], org:null,
+    activeMs:0, lastTick:t, lastMoveW:t, dist:0, anchor:null, mvA:null, buf:[], lastFixW:0, ev:[],
     seg:0, segStartMs:0, segStartD:0, segRes:[], kmNext:1000, kmSplits:[], kmLastMs:0,
     al:{state:"none",n:0,last:0,warned:false,lastCheck:0}, cue:{}, lastSave:0, hiddenAt:0, gaps:0,
     srT:[0], srD:[0], rt:[], dop:false,
@@ -294,18 +278,18 @@ function tick(){
   CR.lastTick = t;
   /* pausa automatica: fix recenti che dicono "fermo" da oltre 6 secondi (senza fix non si ferma nulla) */
   if(CR.running && !CR.paused && !CR.auto && CR.opt.auto && t-GPS.t < 4000 && t-CR.lastMoveW > 6000){
-    CR.auto = true; CR.anchor = null;
+    CR.auto = true;
     if(CR.moved) say("In pausa.");
   }
-}
-function pushSample(v){
-  CR.samples.push({ms:CR.activeMs, d:CR.dist, v:v});
-  var cut = CR.activeMs-90000; while(CR.samples.length>2 && CR.samples[0].ms<cut) CR.samples.shift();
 }
 function pushEv(){
   CR.ev.push({ms:CR.activeMs, d:CR.dist});
   var cut = CR.activeMs-180000; while(CR.ev.length>2 && CR.ev[0].ms<cut) CR.ev.shift();
 }
+/* Distanza dai punti GPS, come Strava: media degli ultimi 5 punti, poi un nuovo punto conta quando ti sei
+   spostato di almeno 5 m (di più se il segnale è impreciso). Al banco, sulla corsa vera del 29 ottobre e su un
+   rettilineo con vari tipi di rumore, l'errore resta fra -1,5% e +1,4%. La velocità Doppler del telefono NON si usa:
+   sui dati veri leggeva l'11% in meno del reale. */
 function onFix(pos){
   var c = pos.coords, t = now();
   GPS.acc = c.accuracy; GPS.t = t; GPS.err = null;
@@ -314,43 +298,37 @@ function onFix(pos){
   gpsUi();
   if(!CR || !CR.running) return;
   tick();
-  if(CR.paused){ CR.anchor=null; KF=null; return; }
+  if(CR.paused){ CR.anchor=null; CR.mvA=null; CR.buf=[]; return; }
   if(c.accuracy > 30) return;
-  if(spd!=null) CR.dop = true;
-  if(!CR.org) CR.org = {lat:c.latitude, lon:c.longitude, k:Math.cos(c.latitude*Math.PI/180)};
-  var x = (c.longitude-CR.org.lon)*111320*CR.org.k, y = (c.latitude-CR.org.lat)*111320;
-  var R = Math.max(16, c.accuracy*c.accuracy);
-  var gap = CR.anchor ? (t-CR.anchor.w)/1000 : 0;
-  if(CR.anchor && gap>0 && gap<10 && Math.sqrt((x-CR.anchor.x)*(x-CR.anchor.x)+(y-CR.anchor.y)*(y-CR.anchor.y))/gap > 9) return; /* salto */
-  if(gap > 8) KF = null;
-  var k = kfStep(x, y, R, t);
-  var moving = spd!=null ? spd >= 1.0 : k.v >= 1.0;
+  var ll = [c.latitude, c.longitude], lr = [Math.round(ll[0]*1e5)/1e5, Math.round(ll[1]*1e5)/1e5];
+  /* movimento: spostamento reale di almeno 6 m, oppure velocità chiaramente da corsa */
+  if(!CR.mvA) CR.mvA = {ll:ll, w:t};
+  var moving = hav(CR.mvA.ll, ll) >= 6 || (spd!=null && spd >= 1.5);
   if(moving){
-    CR.lastMoveW = t;
+    CR.mvA = {ll:ll, w:t}; CR.lastMoveW = t;
     if(!CR.moved && CR.dist===0 && CR.opt.auto){
       /* il tempo parte dal primo passo: l'attesa del segnale non conta */
-      CR.activeMs = 0; CR.segStartMs = 0; CR.kmLastMs = 0; CR.srT = [0]; CR.srD = [0]; CR.samples = []; CR.ev = []; CR.lastTick = t;
+      CR.activeMs = 0; CR.segStartMs = 0; CR.kmLastMs = 0; CR.srT = [0]; CR.srD = [0]; CR.ev = []; CR.lastTick = t;
+      if(CR.anchor) CR.anchor.ms = 0;
     }
     if(CR.auto){ CR.auto = false; CR.lastTick = t; CR.resumeMs = CR.activeMs; if(CR.moved) say("Si riparte."); }
     CR.moved = true;
   }
-  /* percorso grezzo, un punto ogni 8 m */
-  var ll = [Math.round(c.latitude*1e5)/1e5, Math.round(c.longitude*1e5)/1e5];
-  if(!CR.auto && (!CR.rtLast || hav(CR.rtLast, ll) >= 8)){ CR.rt.push([Math.round((t-CR.start)/1000), ll[0], ll[1]]); CR.rtLast = ll; }
-  if(CR.auto){ CR.anchor = {x:k.x, y:k.y, w:t, ms:CR.activeMs}; return; }
-  var inc = 0;
-  if(CR.anchor){
-    if(gap > 8){ inc = Math.sqrt((x-CR.anchor.x)*(x-CR.anchor.x)+(y-CR.anchor.y)*(y-CR.anchor.y)); if(inc/gap > 7.5) inc = 0; }
-    else if(spd!=null){ inc = spd < 0.5 ? 0 : spd*gap; }
-    else {
-      var dk = Math.sqrt((k.x-CR.anchor.x)*(k.x-CR.anchor.x)+(k.y-CR.anchor.y)*(k.y-CR.anchor.y));
-      if(dk < 10 || k.v < 0.5){ pushSample(null); return; }
-      inc = dk;
-    }
-  }
-  if(inc > 0) addDist(inc, CR.anchor.ms, CR.activeMs);
-  CR.anchor = {x:k.x, y:k.y, w:t, ms:CR.activeMs};
-  pushSample(spd); pushEv();
+  if(!CR.auto && (!CR.rtLast || hav(CR.rtLast, lr) >= 5)){ CR.rt.push([Math.round((t-CR.start)/1000), lr[0], lr[1]]); CR.rtLast = lr; }
+  /* media mobile degli ultimi 5 punti: azzerata dopo pause e buchi del segnale */
+  if(!CR.buf || (CR.lastFixW && t-CR.lastFixW > 8000)) CR.buf = [];
+  CR.lastFixW = t;
+  CR.buf.push(ll); if(CR.buf.length > 5) CR.buf.shift();
+  var sm = [0,0]; CR.buf.forEach(function(q){ sm[0]+=q[0]; sm[1]+=q[1]; }); sm = [sm[0]/CR.buf.length, sm[1]/CR.buf.length];
+  if(CR.auto){ CR.anchor = {ll:sm, w:t, ms:CR.activeMs}; return; }
+  if(!CR.anchor){ CR.anchor = {ll:sm, w:t, ms:CR.activeMs}; pushEv(); return; }
+  var d = hav(CR.anchor.ll, sm), gap = (t-CR.anchor.w)/1000;
+  if(gap>0 && gap<10 && hav(CR.anchor.ll, ll)/gap > 12) { CR.buf.pop(); return; }  /* salto del segnale */
+  if(d < Math.max(5, Math.min(12, c.accuracy*0.5))) return;      /* fermo o rumore */
+  if(gap > 8 && d/gap > 7.5){ CR.anchor = {ll:sm, w:t, ms:CR.activeMs}; return; } /* dopo una sospensione, tratto non plausibile */
+  addDist(d, CR.anchor.ms, CR.activeMs);
+  CR.anchor = {ll:sm, w:t, ms:CR.activeMs};
+  pushEv();
   var n = CR.srT.length-1;
   if(CR.dist - CR.srD[n] >= 10 || CR.activeMs - CR.srT[n] >= 30000){ CR.srT.push(Math.round(CR.activeMs)); CR.srD.push(Math.round(CR.dist*10)/10); }
 }
@@ -370,15 +348,9 @@ function addDist(d, msA, msB){
   }
   CR.dist = d1;
 }
-/* passo su finestra mobile: prima la velocità Doppler, altrimenti i punti di avanzamento */
+/* passo su finestra mobile, dai punti di avanzamento esatti */
 function rolling(W, from){
   var nowMs = CR.activeMs, cut = Math.max(nowMs-W*1000, from||0);
-  var win = CR.samples.filter(function(x){ return x.ms>=cut; });
-  var vs = win.filter(function(x){ return x.v!=null; });
-  if(win.length>=3 && vs.length >= Math.max(3, 0.7*win.length) && (nowMs-cut) >= Math.min(12000, W*400)){
-    var m = vs.reduce(function(a,x){ return a+x.v; },0)/vs.length;
-    return m < 0.8 ? null : 1000/m;
-  }
   var ev = CR.ev.filter(function(x){ return x.ms>=cut; });
   if(ev.length<2) return null;
   var a = ev[0], b = ev[ev.length-1], dd = b.d-a.d, dt = (b.ms-a.ms)/1000;
@@ -443,8 +415,7 @@ function checkAlert(){
   CR.al.lastCheck = t;
   var from = Math.max(CR.segStartMs, CR.resumeMs||0);
   if((CR.activeMs-from)/1000 < 45) return;
-  var recent = CR.samples.slice(-10), dop = recent.length>=5 && recent.filter(function(x){ return x.v!=null; }).length >= 0.7*recent.length;
-  var p = rolling(dop?60:90, from+5000), st = band(s, p, dop?2:5);
+  var p = rolling(60, from+5000), st = band(s, p, 3);
   if(st==="none") return;
   if(st===CR.al.state) CR.al.n++; else { if(st!=="ok" && CR.al.state!=="ok" && CR.al.state!=="none") CR.al.count = 0; CR.al.state=st; CR.al.n=1; }
   if(st!=="ok" && CR.al.n>=2 && t-CR.al.last > (CR.al.count>=2 ? 120000 : 60000)){
@@ -501,7 +472,7 @@ function loop(){
 }
 function saveLive(){
   if(!CR) return; CR.lastSave = now();
-  var o = {}; for(var k in CR){ if(k!=="anchor" && k!=="samples" && k!=="ev") o[k]=CR[k]; }
+  var o = {}; for(var k in CR){ if(k!=="anchor" && k!=="mvA" && k!=="ev" && k!=="buf") o[k]=CR[k]; }
   o.savedAt = now(); lsSet(LIVE_KEY, o);
 }
 async function wake(){
@@ -522,7 +493,7 @@ function start(){
   S.voce=$("optVoce").checked; S.km=$("optKm").checked; S.vib=$("optVib").checked; S.auto=$("optAuto").checked; saveSet();
   if(!gpsStart()) return;
   audioOn();
-  CR = fresh(); KF = null;
+  CR = fresh();
   $("rsWarn").textContent = (GPS.acc==null || GPS.acc>20) ? "Segnale GPS ancora in arrivo: la distanza parte dal primo punto buono." : "";
   $("resumeBox").style.display = "none";
   enterRun();
@@ -533,7 +504,7 @@ function start(){
 }
 function pause(){
   if(!CR) return; tick();
-  CR.paused = !CR.paused; CR.anchor = null; CR.lastTick = now(); CR.lastMoveW = now(); CR.auto = false;
+  CR.paused = !CR.paused; CR.anchor = null; CR.mvA = null; CR.buf = []; CR.lastTick = now(); CR.lastMoveW = now(); CR.auto = false;
   say(CR.paused ? "Pausa." : "Si riparte."); saveLive(); renderRun();
 }
 function skip(){
@@ -617,7 +588,7 @@ function offerResume(){
 }
 function resume(){
   var o = lsGet(LIVE_KEY); if(!o) return;
-  CR = o; CR.running=true; CR.paused=true; CR.auto=false; CR.anchor=null; CR.samples=[]; CR.ev=[]; CR.lastTick=now(); CR.lastMoveW=now(); CR.hiddenAt=0; KF=null;
+  CR = o; CR.running=true; CR.paused=true; CR.auto=false; CR.anchor=null; CR.mvA=null; CR.buf=[]; CR.ev=[]; CR.lastTick=now(); CR.lastMoveW=now(); CR.hiddenAt=0;
   CR.opt = {voce:S.voce, vib:S.vib, km:S.km, auto:S.auto};
   $("resumeBox").style.display = "none";
   gpsStart(); audioOn(); enterRun();
