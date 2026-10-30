@@ -1,7 +1,7 @@
 /* Cronometro corsa — GPS, fasce di ritmo, storico e record. Tutto resta sul telefono. */
 (function(){
 "use strict";
-var VERSION = "2.1";
+var VERSION = "2.2";
 
 /* ============================ utilità ============================ */
 var $ = function(id){ return document.getElementById(id); };
@@ -44,35 +44,36 @@ function rip(n,first,rest){
   for(var i=1;i<=n;i++){ var p=i===1?first:rest; a.push(D("Ripetuta "+i+" di "+n,1000,"work",p-5,p+5)); if(i<n) a.push(T("Recupero",2,"rec")); }
   a.push(COOL(10)); return a;
 }
-function medio(min){ return [WARM(12), T("Medio "+min+"′",min,"work",P(5,30),P(5,40)), COOL(13)]; }
+function medio(min){ return [WARM(12), T("Medio "+min+"′",min,"work",P(5,25),P(5,35)), COOL(13)]; }
 function finale(km,fin){ return [D("Lungo · "+km+" km",km*1000,"work",P(6,20),null), D("Finale · "+fin+" km",fin*1000,"work",P(5,45),P(5,55))]; }
 function tkm(n,p){ return D("Test · km "+n,1000,"work",p-4,p+4); }
 var PRESETS = [
  {id:"libero", nome:"Corsa libera", corto:"Corsa libera", kind:"libero"},
  {id:"rip5", nome:"Ripetute 5 × 1000 m · prima a 5:10, poi 5:05", corto:"Ripetute 5 × 1000 m", kind:"rip", segs:rip(5,P(5,10),P(5,5))},
  {id:"rip6", nome:"Ripetute 6 × 1000 m · prima a 5:10, poi 5:05", corto:"Ripetute 6 × 1000 m", kind:"rip", segs:rip(6,P(5,10),P(5,5))},
- {id:"rip6f", nome:"Ripetute 6 × 1000 m · prima a 5:05, poi 5:00", corto:"Ripetute 6 × 1000 m", kind:"rip", segs:rip(6,P(5,5),P(5,0))},
- {id:"rip4", nome:"Ripetute 4 × 1000 m a 5:00", corto:"Ripetute 4 × 1000 m", kind:"rip", segs:rip(4,P(5,0),P(5,0))},
+ {id:"rip6f", nome:"Ripetute 6 × 1000 m · prima a 5:00, poi 4:55", corto:"Ripetute 6 × 1000 m", kind:"rip", segs:rip(6,P(5,0),P(4,55))},
+ {id:"rip4", nome:"Ripetute 4 × 1000 m a 4:55", corto:"Ripetute 4 × 1000 m", kind:"rip", segs:rip(4,P(4,55),P(4,55))},
  {id:"fac30", nome:"Facile 30′", corto:"Facile", kind:"facile", segs:[T("Facile",30,"work",P(6,10),null)]},
  {id:"fac38", nome:"Facile 38′", corto:"Facile", kind:"facile", segs:[T("Facile",38,"work",P(6,10),null)]},
  {id:"fac40", nome:"Facile 40′", corto:"Facile", kind:"facile", segs:[T("Facile",40,"work",P(6,10),null)]},
- {id:"med2x10", nome:"Medio spezzato 2 × 10′", corto:"Medio 2 × 10′", kind:"medio",
-   segs:[WARM(12), T("Medio 1 di 2",10,"work",P(5,30),P(5,40)), T("Recupero",3,"rec"), T("Medio 2 di 2",10,"work",P(5,30),P(5,40)), COOL(11)]},
- {id:"med20", nome:"Medio continuo 20′", corto:"Medio 20′", kind:"medio", segs:medio(20)},
- {id:"med25", nome:"Medio continuo 25′", corto:"Medio 25′", kind:"medio", segs:medio(25)},
+ {id:"med2x10", nome:"Medio spezzato 2 × 10′ a 5:30", corto:"Medio 2 × 10′", kind:"medio",
+   segs:[WARM(12), T("Medio 1 di 2",10,"work",P(5,25),P(5,35)), T("Recupero",3,"rec"), T("Medio 2 di 2",10,"work",P(5,25),P(5,35)), COOL(11)]},
+ {id:"med20", nome:"Medio continuo 20′ a 5:30", corto:"Medio 20′", kind:"medio", segs:medio(20)},
+ {id:"med25", nome:"Medio continuo 25′ a 5:30", corto:"Medio 25′", kind:"medio", segs:medio(25)},
+ {id:"lungo10", nome:"Lungo facile 10 km", corto:"Lungo facile 10 km", kind:"lungo", segs:[D("Lungo · 10 km",10000,"work",P(6,20),null)]},
  {id:"lungo12", nome:"Lungo 12 km, nessun finale", corto:"Lungo 12 km", kind:"lungo", segs:[D("Lungo · 12 km",12000,"work",P(6,20),null)]},
  {id:"lungo12f", nome:"Lungo 12 km, ultimi 2 a 5:50", corto:"Lungo 12 km con finale", kind:"lungo", segs:finale(10,2)},
  {id:"lungo13f", nome:"Lungo 13 km, ultimi 3 a 5:50", corto:"Lungo 13 km con finale", kind:"lungo", segs:finale(10,3)},
- {id:"test5", nome:"Test 5 km · 5:12, 5:08, 5:05, 5:02, poi libero", corto:"Test 5 km", kind:"test5",
-   segs:[T("Riscaldamento e allunghi",10,"warm"), tkm(1,P(5,12)), tkm(2,P(5,8)), tkm(3,P(5,5)), tkm(4,P(5,2)), D("Test · km 5, quello che resta",1000,"work"), COOL(10)]},
+ {id:"test5", nome:"Test 5 km · 5:05, poi 5:00, ultimo libero", corto:"Test 5 km", kind:"test5",
+   segs:[T("Riscaldamento e allunghi",10,"warm"), tkm(1,P(5,5)), tkm(2,P(5,0)), tkm(3,P(5,0)), tkm(4,P(5,0)), D("Test · km 5, quello che resta",1000,"work"), COOL(10)]},
  {id:"test10", nome:"10 km a 5:30 costanti", corto:"10 km a ritmo", kind:"test10", segs:[D("10 km",10000,"work",P(5,25),P(5,35))]}
 ];
 var BY = {}; PRESETS.forEach(function(p){ BY[p.id]=p; });
 var OGGI_PIANO = {"2026-10-20":"rip5","2026-10-21":"fac38","2026-10-23":"med2x10","2026-10-24":"lungo12","2026-10-25":"lungo12",
  "2026-10-27":"rip6","2026-10-28":"fac40","2026-10-30":"med20","2026-10-31":"lungo12f","2026-11-01":"lungo12f",
  "2026-11-03":"rip6f","2026-11-04":"fac40","2026-11-06":"med25","2026-11-07":"lungo13f","2026-11-08":"lungo13f",
- "2026-11-10":"rip4","2026-11-11":"fac30","2026-11-13":"test5","2026-11-14":"test10","2026-11-15":"test10"};
-var CHIPS = [["Facile",P(6,10),P(6,30)],["Lungo",P(6,20),P(6,35)],["Medio",P(5,30),P(5,40)],
+ "2026-11-10":"rip4","2026-11-11":"fac30","2026-11-13":"test5","2026-11-14":"lungo10","2026-11-15":"lungo10","2026-11-22":"test10"};
+var CHIPS = [["Facile",P(6,10),P(6,30)],["Lungo",P(6,20),P(6,35)],["Medio",P(5,25),P(5,35)],
              ["Ritmo 10 km",P(5,25),P(5,35)],["Ripetute",P(4,55),P(5,5)],["Nessuna",null,null]];
 
 function targetTxt(s){
