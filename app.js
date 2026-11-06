@@ -1,7 +1,7 @@
 /* Cronometro corsa — GPS, fasce di ritmo, storico e record. Tutto resta sul telefono. */
 (function(){
 "use strict";
-var VERSION = "2.3";
+var VERSION = "2.4";
 
 /* ============================ utilità ============================ */
 var $ = function(id){ return document.getElementById(id); };
@@ -40,7 +40,7 @@ function O(n,k,lo,hi){ return {n:n,t:"open",v:0,k:k,lo:lo==null?null:lo,hi:hi==n
 var WARM = function(min){ return T("Riscaldamento",min,"warm",P(6,10),null); };
 var COOL = function(min){ return T("Defaticamento",min,"cool",P(6,10),null); };
 function rip(n,first,rest){
-  var a=[WARM(15)];
+  var a=[T("Riscaldamento, poi slanci delle gambe",15,"warm",P(6,10),null)];
   for(var i=1;i<=n;i++){ var p=i===1?first:rest; a.push(D("Ripetuta "+i+" di "+n,1000,"work",p-5,p+5)); if(i<n) a.push(T("Recupero",2,"rec")); }
   a.push(COOL(10)); return a;
 }
@@ -52,7 +52,7 @@ var PRESETS = [
  {id:"rip5", nome:"Ripetute 5 × 1000 m · prima a 5:10, poi 5:05", corto:"Ripetute 5 × 1000 m", kind:"rip", segs:rip(5,P(5,10),P(5,5))},
  {id:"rip6", nome:"Ripetute 6 × 1000 m · prima a 5:10, poi 5:05", corto:"Ripetute 6 × 1000 m", kind:"rip", segs:rip(6,P(5,10),P(5,5))},
  {id:"rip6f", nome:"Ripetute 6 × 1000 m · prima a 5:00, poi 4:55", corto:"Ripetute 6 × 1000 m", kind:"rip", segs:rip(6,P(5,0),P(4,55))},
- {id:"rip4", nome:"Ripetute 4 × 1000 m a 4:55", corto:"Ripetute 4 × 1000 m", kind:"rip", segs:rip(4,P(4,55),P(4,55))},
+ {id:"rip4", nome:"Ripetute 4 × 1000 m · prima a 4:55, poi 4:50", corto:"Ripetute 4 × 1000 m", kind:"rip", segs:rip(4,P(4,55),P(4,50))},
  {id:"fac30", nome:"Facile 30′", corto:"Facile", kind:"facile", segs:[T("Facile",30,"work",P(6,10),null)]},
  {id:"lento30", nome:"Corsa lenta 30′", corto:"Corsa lenta", kind:"facile", segs:[T("Lenta",30,"work",P(6,20),null)]},
  {id:"fac38", nome:"Facile 38′", corto:"Facile", kind:"facile", segs:[T("Facile",38,"work",P(6,10),null)]},
@@ -67,8 +67,8 @@ var PRESETS = [
  {id:"lungo12", nome:"Lungo 12 km, nessun finale", corto:"Lungo 12 km", kind:"lungo", segs:[D("Lungo · 12 km",12000,"work",P(6,20),null)]},
  {id:"lungo12f", nome:"Lungo 12 km, ultimi 2 a 5:50", corto:"Lungo 12 km con finale", kind:"lungo", segs:finale(10,2)},
  {id:"lungo13f", nome:"Lungo 13 km, ultimi 3 a 5:50", corto:"Lungo 13 km con finale", kind:"lungo", segs:finale(10,3)},
- {id:"test5", nome:"Test 5 km · 5:05, poi 5:00, ultimo libero", corto:"Test 5 km", kind:"test5",
-   segs:[T("Riscaldamento e allunghi",10,"warm"), tkm(1,P(5,5)), tkm(2,P(5,0)), tkm(3,P(5,0)), tkm(4,P(5,0)), D("Test · km 5, quello che resta",1000,"work"), COOL(10)]},
+ {id:"test5", nome:"Test 5 km · 5:00, poi 4:55, ultimo libero", corto:"Test 5 km", kind:"test5",
+   segs:[T("Riscaldamento e allunghi",10,"warm"), tkm(1,P(5,0)), tkm(2,P(4,55)), tkm(3,P(4,55)), tkm(4,P(4,55)), D("Test · km 5, quello che resta",1000,"work"), COOL(10)]},
  {id:"test10", nome:"Test 10 km a ritmo costante", corto:"Test 10 km", kind:"test10",
    segs:[T("Riscaldamento e allunghi",10,"warm"), D("Test · 10 km",10000,"work",P(5,20),P(5,30)), COOL(5)]}
 ];
@@ -274,7 +274,7 @@ function fresh(){
     activeMs:0, lastTick:t, lastMoveW:t, dist:0, anchor:null, mvA:null, buf:[], lastFixW:0, ev:[],
     seg:0, segStartMs:0, segStartD:0, segRes:[], kmNext:1000, kmSplits:[], kmLastMs:0,
     al:{state:"none",n:0,last:0,warned:false,lastCheck:0}, cue:{}, lastSave:0, hiddenAt:0, gaps:0,
-    srT:[0], srD:[0], rt:[], dop:false,
+    srT:[0], srD:[0], rt:[], dop:false, em30:null, em45:null, emMs:0,
     opt:{voce:S.voce, vib:S.vib, km:S.km, auto:S.auto}};
 }
 function tick(){
@@ -291,7 +291,36 @@ function tick(){
 function pushEv(){
   CR.ev.push({ms:CR.activeMs, d:CR.dist});
   var cut = CR.activeMs-180000; while(CR.ev.length>2 && CR.ev[0].ms<cut) CR.ev.shift();
+  emUpd();
 }
+/* passo attuale: media esponenziale della velocità fra un avanzamento e il successivo.
+   Sulla corsa del 6 novembre la finestra fissa di 30 secondi ballava fra 4:40 e 6:04 durante un medio costante,
+   con 26 salti di oltre 10 secondi; la media esponenziale a 30 secondi resta fra 5:00 e 5:55, senza salti,
+   e risponde a un cambio di ritmo in circa 20 secondi, come prima. */
+function emReset(){ CR.em30 = null; CR.em45 = null; CR.emMs = CR.activeMs; }
+function emUpd(){
+  var n = CR.ev.length; if(n<2) return;
+  var a = CR.ev[n-2], b = CR.ev[n-1], dt = (b.ms-a.ms)/1000;
+  if(dt <= 0) return;
+  if(dt > 15){ emReset(); return; }
+  var v = (b.d-a.d)/dt;
+  CR.em30 = CR.em30==null ? v : CR.em30 + (1-Math.exp(-dt/30))*(v-CR.em30);
+  CR.em45 = CR.em45==null ? v : CR.em45 + (1-Math.exp(-dt/45))*(v-CR.em45);
+}
+function curPace(which){
+  var v = CR[which], n = CR.ev.length;
+  if(v==null || v < 0.8 || !n || CR.activeMs-CR.ev[n-1].ms > 12000 || CR.activeMs-CR.emMs < 20000) return null;
+  return 1000/v;
+}
+/* media del blocco calcolata all'ultimo avanzamento, non all'istante: la distanza cresce a scatti di 5 m e
+   dividere il tempo che scorre per una distanza ferma faceva oscillare il numero di 10 secondi nei primi 200 m */
+function blockPace(minD){
+  var n = CR.ev.length, e = n ? CR.ev[n-1] : null;
+  if(!e || e.ms < CR.segStartMs) return null;
+  var inD = e.d-CR.segStartD;
+  return inD >= (minD||200) ? (e.ms-CR.segStartMs)/inD : null;
+}
+function round5(p){ return p==null ? null : 5*Math.round(p/5); }
 /* Distanza dai punti GPS, come Strava: media degli ultimi 5 punti, poi un nuovo punto conta quando ti sei
    spostato di almeno 5 m (di più se il segnale è impreciso). Al banco, sulla corsa vera del 29 ottobre e su un
    rettilineo con vari tipi di rumore, l'errore resta fra -1,5% e +1,4%. La velocità Doppler del telefono NON si usa:
@@ -314,10 +343,10 @@ function onFix(pos){
     CR.mvA = {ll:ll, w:t}; CR.lastMoveW = t;
     if(!CR.moved && CR.dist===0 && CR.opt.auto){
       /* il tempo parte dal primo passo: l'attesa del segnale non conta */
-      CR.activeMs = 0; CR.segStartMs = 0; CR.kmLastMs = 0; CR.srT = [0]; CR.srD = [0]; CR.ev = []; CR.lastTick = t;
+      CR.activeMs = 0; CR.segStartMs = 0; CR.kmLastMs = 0; CR.srT = [0]; CR.srD = [0]; CR.ev = []; CR.lastTick = t; emReset();
       if(CR.anchor) CR.anchor.ms = 0;
     }
-    if(CR.auto){ CR.auto = false; CR.lastTick = t; CR.resumeMs = CR.activeMs; if(CR.moved) say("Si riparte."); }
+    if(CR.auto){ CR.auto = false; CR.lastTick = t; CR.resumeMs = CR.activeMs; emReset(); if(CR.moved) say("Si riparte."); }
     CR.moved = true;
   }
   if(!CR.auto && (!CR.rtLast || hav(CR.rtLast, lr) >= 5)){ CR.rt.push([Math.round((t-CR.start)/1000), lr[0], lr[1]]); CR.rtLast = lr; }
@@ -399,6 +428,7 @@ function nextSeg(endMs, endD){
     else if(s.t!=="open") say("Fine blocco. Media "+sayP(pace)+".");
   }
   CR.seg++; CR.segStartMs=endMs; CR.segStartD=endD; CR.cue={}; CR.al={state:"none",n:0,last:0,warned:false,lastCheck:0};
+  emReset();  /* il passo attuale riparte con il blocco: non si porta dietro il ritmo del riscaldamento o del recupero */
   if(CR.seg >= CR.segs.length){
     CR.segs.push(O("Fuori programma","cool"));
     beep(3); vib([300,120,300,120,300]);
@@ -420,8 +450,12 @@ function checkAlert(){
   if(t-CR.al.lastCheck < 10000) return;
   CR.al.lastCheck = t;
   var from = Math.max(CR.segStartMs, CR.resumeMs||0);
-  if((CR.activeMs-from)/1000 < 45) return;
-  var p = rolling(60, from+5000), st = band(s, p, 3);
+  if((CR.activeMs-from)/1000 < 60) return;   /* il primo minuto del blocco serve a prendere il ritmo */
+  /* passo attuale lento (45 s) con 5 secondi di tolleranza; se la media del blocco è nella fascia,
+     si tollera fino a 10 secondi: sulla corsa del 6 novembre gli avvisi scendono da 10 a 2, entrambi veri */
+  var p = curPace("em45"), st = band(s, p, 5), bp = blockPace(150);
+  if(st==="fast" && bp!=null && s.lo!=null && bp >= s.lo && p >= s.lo-10) st = "ok";
+  if(st==="slow" && bp!=null && s.hi!=null && bp <= s.hi && p <= s.hi+10) st = "ok";
   if(st==="none") return;
   if(st===CR.al.state) CR.al.n++; else { if(st!=="ok" && CR.al.state!=="ok" && CR.al.state!=="none") CR.al.count = 0; CR.al.state=st; CR.al.n=1; }
   if(st!=="ok" && CR.al.n>=2 && t-CR.al.last > (CR.al.count>=2 ? 120000 : 60000)){
@@ -446,15 +480,22 @@ function renderRun(){
   if(!CR.moved && CR.auto){ mainL = "parti quando vuoi"; }
   $("rsMain").textContent = main; $("rsMainL").textContent = CR.paused ? "in pausa" : mainL;
   $("rsBar").style.width = Math.max(0,Math.min(100,prog*100))+"%";
-  var p = CR.auto ? null : rolling(30, Math.max(CR.segStartMs, CR.resumeMs||0)), st = band(s, p);
-  $("rsPace").textContent = fmtP(p);
+  /* numero grande: nelle sedute a blocchi il passo medio del blocco (stabile), nella corsa libera il passo attuale;
+     il colore segue lo stesso stato degli avvisi a voce */
+  var structured = CR.segs.length>1 && s.n!=="Fuori programma";
+  var pNow = CR.auto ? null : round5(curPace("em30")), pBlk = blockPace(200);
+  var useBlk = structured && pBlk!=null, big = useBlk ? pBlk : pNow;
+  var st = (s.lo==null && s.hi==null) || CR.auto ? "none" : CR.al.state;   /* neutro nel primo minuto del blocco */
+  $("rsPace").textContent = fmtP(big);
+  $("rsPaceL").textContent = useBlk ? "passo medio del blocco" : structured ? "passo attuale · la media del blocco dopo 200 m" : "passo attuale";
   $("rsPaceBox").className = "rsPace "+(st==="none"?"":st);
   $("rsTarget").textContent = (s.lo==null && s.hi==null) ? "nessuna fascia di ritmo" :
     (st==="fast"?"troppo veloce · ":st==="slow"?"troppo lento · ":st==="ok"?"nel ritmo · ":"fascia ")+targetTxt(s);
   $("rsDist").textContent = fmtKm(CR.dist);
   $("rsTime").textContent = fmtT(CR.activeMs);
-  if(CR.segs.length===1 || s.n==="Fuori programma"){ $("rsAvg").textContent = CR.dist>50 ? fmtP(CR.activeMs/CR.dist) : "—"; $("rsAvgL").textContent = "passo medio"; }
-  else { $("rsAvg").textContent = inD>50 ? fmtP(inMs/inD) : "—"; $("rsAvgL").textContent = "passo del blocco"; }
+  if(!structured){ $("rsAvg").textContent = CR.dist>50 ? fmtP(CR.activeMs/CR.dist) : "—"; $("rsAvgL").textContent = "passo medio"; }
+  else if(useBlk){ $("rsAvg").textContent = fmtP(pNow); $("rsAvgL").textContent = "passo attuale"; }
+  else { $("rsAvg").textContent = "—"; $("rsAvgL").textContent = "media del blocco"; }
   var nk = CR.kmSplits.length;
   $("rsLastKm").textContent = nk ? fmtP(CR.kmSplits[nk-1]/1000) : "—";
   $("rsLastKmL").textContent = nk ? "km "+nk : "ultimo km";
@@ -594,7 +635,7 @@ function offerResume(){
 }
 function resume(){
   var o = lsGet(LIVE_KEY); if(!o) return;
-  CR = o; CR.running=true; CR.paused=true; CR.auto=false; CR.anchor=null; CR.mvA=null; CR.buf=[]; CR.ev=[]; CR.lastTick=now(); CR.lastMoveW=now(); CR.hiddenAt=0;
+  CR = o; CR.running=true; CR.paused=true; CR.auto=false; CR.anchor=null; CR.mvA=null; CR.buf=[]; CR.ev=[]; emReset(); CR.lastTick=now(); CR.lastMoveW=now(); CR.hiddenAt=0;
   CR.opt = {voce:S.voce, vib:S.vib, km:S.km, auto:S.auto};
   $("resumeBox").style.display = "none";
   gpsStart(); audioOn(); enterRun();
