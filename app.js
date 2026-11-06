@@ -1,7 +1,7 @@
 /* Cronometro corsa — GPS, fasce di ritmo, storico e record. Tutto resta sul telefono. */
 (function(){
 "use strict";
-var VERSION = "2.4";
+var VERSION = "2.4.1";
 
 /* ============================ utilità ============================ */
 var $ = function(id){ return document.getElementById(id); };
@@ -889,18 +889,24 @@ var SEED = [
  ["2026-10-21","Facile",6.04,"38:24",[385,385,379,377,382,380],"19:25"],
  ["2026-10-24","Medio spezzato 2 × 10′",8.28,"49:02",[377,376,332,351,344,332,362,360],"11:35"],
  ["2026-10-25","Lungo al lago di Comabbio",12.50,"1:18:47",[433,369,395,366,379,476,369,383,362,351,357,334],"11:31"],
- ["2026-10-27","6 × 5′",10.70,"1:00:34",[366,364,336,351,341,295,340,345,340,331],"18:45"]
+ ["2026-10-27","6 × 5′",10.70,"1:00:34",[366,364,336,351,341,295,340,345,340,331],"18:45"],
+ /* corse registrate solo con Strava: aggiunte una volta anche a chi ha già lo storico */
+ ["2026-11-01","Lungo 12 km con finale",11.80,"1:12:22",null,"11:50","n2"],
+ ["2026-11-03","6 × 1000 m",11.00,"1:03:04",null,"18:30","n2"]
 ];
 function seed(){
-  if(lsGet("cc-seeded") || METAS.length) return Promise.resolve();
-  var ops = SEED.map(function(s){
+  var have = {}; METAS.forEach(function(m){ have[m.id] = 1; });
+  var first = !(lsGet("cc-seeded") || METAS.length);
+  var list = first ? SEED : (lsGet("cc-seed2") ? [] : SEED.filter(function(s){ return s[6]==="n2" && !have["s"+s[0]]; }));
+  if(!list.length){ lsSet("cc-seed2", true); return Promise.resolve(); }
+  var ops = list.map(function(s){
     var start = new Date(s[0]+"T"+(s[5]||"18:30")+":00").getTime(), ms = parseT(s[3]), dist = Math.round(s[2]*1000);
     var sp = (s[4]||[]).map(function(x){ return x*1000; }), best = {};
     DISTS.forEach(function(dd){ best[dd[0]] = bestFromSplits(sp, dist, ms, dd[0]); });
     return dbPut("meta", {id:"s"+s[0], start:start, end:start+ms, nome:s[1], kind:"libero", dist:dist, moving:ms, elapsed:ms,
       kmSplits:sp, segRes:[], src:"import", best:best, sforzo:null, fiato:null, gambe:null, note:""});
   });
-  return Promise.all(ops).then(function(){ lsSet("cc-seeded", true); return loadMetas(); });
+  return Promise.all(ops).then(function(){ lsSet("cc-seeded", true); lsSet("cc-seed2", true); return loadMetas(); });
 }
 
 /* ============================ navigazione ============================ */
